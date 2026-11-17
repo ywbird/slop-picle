@@ -1,7 +1,8 @@
 # Nodes
 
 Behavior of each node type. The catalog entry (see [types.md](types.md)) is generated from the tables here.
-Size rule: generators produce a surface of the project's `width × height`. Other nodes state their size.
+Size rule: generators have an optional `size` input; absent, they produce the project's `width × height`.
+Other nodes state their size.
 
 M1 nodes: `solid`, `noise`, `transform`, `blend`, `image`, `output`. The remaining nodes are specified in M3.
 
@@ -23,10 +24,11 @@ All arithmetic wraps modulo 2³². `hash2(x, y, seed) = hash(x ^ hash(y ^ hash(s
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `color` | color | `#000000` | |
+| `size` | size | project size | |
 
 | Output | Type |
 |---|---|
-| `out` | surface |
+| `out` | surface, `size` |
 
 Every pixel is `color`.
 
@@ -34,6 +36,7 @@ Every pixel is `color`.
 |---|---|---|
 | N-SOLID-01 | 4×3 project, `color` `#ff800040` | 4×3 surface, every pixel (255,128,0,64) |
 | N-SOLID-02 | no inputs | every pixel (0,0,0,255) |
+| N-SOLID-03 | 4×3 project, `size [2, 5]` | 2×5 surface |
 
 ## noise — generate
 
@@ -42,10 +45,11 @@ Every pixel is `color`.
 | `kind` | enum `white`, `value` | `value` | |
 | `seed` | int | 0 | |
 | `scale` | int | 4 | 1–1024 |
+| `size` | size | project size | |
 
 | Output | Type |
 |---|---|
-| `out` | surface |
+| `out` | surface, `size` |
 
 Grey, opaque: pixel = (g, g, g, 255).
 
@@ -64,6 +68,7 @@ The shader computes `value` in `f32`; the golden image check for `value` allows 
 | N-NOISE-04 | `value`, `scale` 4, 16×16 | equals golden `noise_value_sc4.png` within 1; pixels with `x mod 4 = 0` and `y mod 4 = 0` equal `floor(unit(hash2(x/4, y/4, 0)) × 256)` |
 | N-NOISE-05 | `value`, `scale` 1 | equals `white` with the same seed |
 | N-NOISE-06 | `scale` 0 | load error `out_of_range` |
+| N-NOISE-07 | `white`, seed 0, `size [8, 8]` in a 4×4 project | 8×8; its top-left 4×4 equals N-NOISE-01 (noise depends on pixel position, not size) |
 
 ## transform — transform
 

@@ -43,6 +43,7 @@ Unknown keys at any level are errors. Strictness makes typos visible, which matt
 |---|---|---|---|
 | `type` | string | yes | a type from the catalog |
 | `inputs` | object | no | input name → input value; missing inputs take their default |
+| `label` | string | no | free note for people and models, at most 500 characters; ignored by evaluation |
 | `pos` | `[number, number]` | no | editor position; ignored by evaluation |
 
 Node ids match `^[a-z][a-z0-9_]{0,63}$`. A project has at most 1000 nodes.
@@ -87,7 +88,7 @@ Each error is:
 | `dangling_ref` | a ref to a node id that does not exist |
 | `unknown_output` | a ref to an output name the node does not have |
 | `cycle` | refs form a cycle; reported once per node in the cycle |
-| `too_large` | more than 1000 nodes, or `width × height` over the cap |
+| `too_large` | more than 1000 nodes, or `width × height` (settings or a `size` input) over the cap |
 
 A `parse_error` or `unsupported_version` stops validation, since nothing else can be checked.
 An `unknown_type` node is skipped for input checks; refs to it are still checked for existence.
@@ -113,7 +114,7 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 | PF-04 | `{"slopc":2}` | one error `unsupported_version` |
 | PF-05 | `{}` | one error `unsupported_version` |
 | PF-06 | `{"slopc":1,"extra":true}` | `unknown_key` |
-| PF-07 | node with key `label` | `unknown_key` with `node` set |
+| PF-07 | node with key `note` | `unknown_key` with `node` set |
 | PF-08 | node id `Noise` and node id `1a` | two `invalid_id` errors |
 | PF-09 | node `type: "nope"` | `unknown_type`, no input errors for that node |
 | PF-10 | `solid` with input `colour` | `unknown_input` with `node`, `input` |
@@ -138,3 +139,5 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 | PF-29 | save of an invalid model | refused with the validation errors; file on disk unchanged |
 | PF-30 | another process holds `<file>.lock` | save waits until it is released, then succeeds |
 | PF-31 | save is interrupted after the temp write (simulated by failing the rename) | original file unchanged; temp file removed |
+| PF-32 | node with `"label": "sky gradient"` | valid; kept through save; evaluation output equal to the same node without it |
+| PF-33 | `label` = `5`, and a 501-character string | `type_mismatch`, `out_of_range` |

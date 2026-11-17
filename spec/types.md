@@ -9,6 +9,7 @@
 | `bool` | `true` / `false` | |
 | `color` | `"#rrggbb"` or `"#rrggbbaa"` | hex digits in either case; `#rrggbb` means alpha `ff`; saved as written |
 | `vec2` | `[number, number]` | |
+| `size` | `[int, int]` | width, height; each 1–4096, product ≤ 2048² (`out_of_range` / `too_large`) |
 | `enum` | string | one of the input's `options` |
 | `string` | string | |
 | `path` | string | relative to the project file's directory; `/` as separator |
@@ -45,7 +46,8 @@ Shape (also the output of `slopc nodes --json`):
 }
 ```
 
-- `required: true` inputs have no `default`. All other inputs have a `default` that fits their type and range.
+- `required: true` inputs have no `default`. All other inputs have a `default` that fits their type and range,
+  except `size` inputs, whose `default` is `null`, meaning the project's `width × height`.
 - `min` / `max` appear only on `number` and `int` inputs. `options` appears on `enum` inputs, non-empty.
 - Every node type has at least one output. Input and output names match `^[a-z][a-z0-9_]*$` and are unique per node.
 - Categories in M1: `io`, `generate`, `transform`, `filter`, `color`, `compose`, `value`.
@@ -65,3 +67,6 @@ Shape (also the output of `slopc nodes --json`):
 | TY-08 | `slopc nodes --json` | parses; one entry per catalog type; entries equal the shape above |
 | TY-09 | a ref from an `int` output to a `number` input | valid |
 | TY-10 | a ref from a `number` output to an `int` input | `type_mismatch` |
+| TY-11 | `size` given `[2.5, 1]`, `[1]` | `type_mismatch` each |
+| TY-12 | `size` given `[0, 1]`, `[4097, 1]` | `out_of_range` each |
+| TY-13 | `size` given `[4096, 4096]` | `too_large` |

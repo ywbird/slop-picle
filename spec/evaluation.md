@@ -9,7 +9,7 @@
 - `frame` is an integer, `0 ≤ frame < settings.frames`; otherwise the error `frame_out_of_range`.
 - Order: dependencies before dependents. Evaluation is deterministic: the same project, target and frame give the same bytes
   on the same machine.
-- A missing optional input takes its catalog default.
+- A missing optional input takes its catalog default; a missing `size` input takes the project's `[width, height]`.
 - A ref value outside its input's range is clamped to the range at evaluation (it was not checkable at load).
 - If a node fails, evaluation stops with:
 
@@ -45,7 +45,7 @@ and the content of files it reads (`image`).
   Commands that do not render (`validate`, `nodes`, ...) never open the GPU.
 - Textures are `Rgba8Unorm`. Shaders read texels with `textureLoad` at integer coordinates, not samplers.
 - A shader node is: one WGSL fragment shader + its catalog entry. Its uniform struct is generated from the catalog
-  inputs (number → `f32`, int → `i32`, bool → `u32`, color → `vec4<f32>` in 0–1, vec2 → `vec2<f32>`, enum → `u32` index).
+  inputs (number → `f32`, int → `i32`, bool → `u32`, color → `vec4<f32>` in 0–1, vec2 → `vec2<f32>`, size → `vec2<u32>`, enum → `u32` index).
 - Float to byte: `round(clamp(v, 0, 1) × 255)`, which is what `Rgba8Unorm` storage does.
 - Random numbers come from an integer hash in `u32` arithmetic (see `noise` in [nodes.md](nodes.md)),
   never from float tricks such as `fract(sin(x))`, so all GPUs give the same bits.
