@@ -287,3 +287,16 @@ fn an_n7_anim_loop() {
     let got: Vec<_> = [4, 5, 6].iter().map(|&f| grey_at(&p, "r", f)).collect();
     assert_eq!(got, vec![Some(3), Some(2), Some(1)]);
 }
+
+#[test]
+fn an_n8_remap_key_follows_source_frame() {
+    let p1 = remap(8, "revert", "surface_in", json!({}));
+    let mut ev = Evaluator::new();
+    let first = ev.eval(&p1, ".".as_ref(), "r", 0).unwrap().into_surface().unwrap();
+    assert_eq!(first.pixel(0, 0)[0], 140);
+    let p2 = ops::apply(&p1, &json!([{ "op": "set_key", "id": "src", "input": "color", "time": 7, "value": "#ffffff", "ease_out_type": "cut" }]))
+        .unwrap()
+        .project;
+    let second = ev.eval(&p2, ".".as_ref(), "r", 0).unwrap().into_surface().unwrap();
+    assert_eq!(second.pixel(0, 0)[0], 255);
+}

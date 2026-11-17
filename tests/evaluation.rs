@@ -193,3 +193,13 @@ fn gpu_04_deterministic_across_processes() {
     };
     assert_eq!(render("a.png"), render("b.png"));
 }
+
+#[test]
+fn ev_13_frame_count_in_key() {
+    let mk = |frames: i64| {
+        load(&json!({ "slopc": 1, "settings": { "frames": frames }, "nodes": { "c": { "type": "counter", "inputs": { "mode": "animation_progress" } } } }).to_string())
+    };
+    let mut ev = Evaluator::new();
+    assert_eq!(ev.eval(&mk(10), ".".as_ref(), "c", 9).unwrap(), slopc::types::Value::Number(1.0));
+    assert_eq!(ev.eval(&mk(19), ".".as_ref(), "c", 9).unwrap(), slopc::types::Value::Number(0.5));
+}

@@ -8,6 +8,7 @@ import {
   literalOp,
   moveOp,
   resetOp,
+  thumbFor,
   thumbUrl,
   toFlow,
   type Catalog,
@@ -120,4 +121,13 @@ test("WEB-13 duplicateOp", () => {
   const n = { type: "blend", label: "mix", inputs: { background: { ref: "a" }, opacity: 0.5 }, pos: [10, 20] as [number, number] };
   expect(duplicateOp(n)).toEqual({ op: "add_node", type: "blend", label: "mix", inputs: { background: { ref: "a" }, opacity: 0.5 }, pos: [50, 60] });
   expect(duplicateOp({ type: "solid" })).toEqual({ op: "add_node", type: "solid", pos: [40, 40] });
+});
+
+test("WEB-07b thumbFor keeps one URL per node and key", () => {
+  const urls = new Map<string, string>();
+  const a = thumbFor(urls, "p.slopc.json", "n", "k1", 0);
+  expect(thumbFor(urls, "p.slopc.json", "n", "k1", 5)).toBe(a);
+  const b = thumbFor(urls, "p.slopc.json", "n", "k2", 5);
+  expect(b).not.toBe(a);
+  expect(b).toContain("frame=5");
 });
