@@ -104,3 +104,29 @@ test("WEB-11 upload a PNG into an image node", async () => {
     return !!img && img.complete && img.naturalWidth === 3;
   });
 }, 30000);
+
+test("WEB-12 dragging follows the cursor without reloads", async () => {
+  const node = page.locator('.svelte-flow__node[data-id="bg"]');
+  const pos = () => node.evaluate((e) => (e as HTMLElement).style.transform);
+  const start = await pos();
+  const reqs: string[] = [];
+  const onReq = (r: { url(): string }) => reqs.push(r.url());
+  page.on("request", onReq);
+  const h = (await node.locator(".head").boundingBox())!;
+  await page.mouse.move(h.x + 20, h.y + 10);
+  await page.mouse.down();
+  const seen: string[] = [];
+  for (let i = 1; i <= 30; i++) {
+    await page.mouse.move(h.x + 20 + i * 4, h.y + 10 + i * 2);
+    await Bun.sleep(20);
+    seen.push(await pos());
+  }
+  const during = reqs.filter((u) => u.includes("/api/project")).length;
+  await page.mouse.up();
+  await Bun.sleep(500);
+  page.off("request", onReq);
+  expect(during).toBe(0);
+  for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(start);
+  expect(new Set(seen).size).toBeGreaterThan(20);
+  expect(reqs.filter((u) => u.includes("/api/ops")).length).toBe(1);
+}, 30000);

@@ -70,4 +70,5 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-08 | `bun run build` | succeeds; `web/dist/index.html` exists |
 | WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `slopc edit` adds a node that appears without a reload |
 | WEB-10 | headless Chromium: connect, change a number widget | the file on disk has the new ref and value |
+| WEB-12 | headless Chromium: drag a node slowly over 30 mouse moves | the node follows the cursor on every move; no project reload during the drag; exactly one `move_node` after the drop (regression: the node flickered back to its old position) |
 | WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |
