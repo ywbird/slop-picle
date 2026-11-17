@@ -172,6 +172,11 @@ User feedback as a checklist. Points that need a decision are indented under the
       - [x] Deviation: a UV map snaps the remapped position to a pixel
       - To confirm: upstream's per-input map surfaces (`setMappable`: a surface driving a parameter per pixel, on about 40 inputs) are still left out; they need every affected shader to read a map
     - [ ] 3.6 the remaining inputs, node by node (curve inputs of gradient and blur come with their nodes)
+      - [x] solid, image, scale, crop, offset (also fixed: it shifted the wrong way), downscale, palette, math, number, counter (commit 4282239)
+      - [ ] noise, gradient, checker, stripe, cellular, shape
+      - [ ] transform
+      - [ ] blur, outline, shadow, posterize, dither, threshold, displace
+      - [ ] color_adjust, color_replace
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
 - [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
