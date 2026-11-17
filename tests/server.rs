@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::surface::Surface;
+use picle::surface::Surface;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -25,17 +25,17 @@ impl Drop for Server {
 
 pub fn start(root: &Path, token: Option<&str>, env_token: Option<&str>) -> Server {
     let mut cmd = Command::new(bin());
-    cmd.args(["serve", "--port", "0", "--root", root.to_str().unwrap()]).stdout(Stdio::piped()).env_remove("SLOPC_TOKEN");
+    cmd.args(["serve", "--port", "0", "--root", root.to_str().unwrap()]).stdout(Stdio::piped()).env_remove("PICLE_TOKEN");
     if let Some(t) = token {
         cmd.args(["--token", t]);
     }
     if let Some(t) = env_token {
-        cmd.env("SLOPC_TOKEN", t);
+        cmd.env("PICLE_TOKEN", t);
     }
     let mut child = cmd.spawn().unwrap();
     let mut line = String::new();
     BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
-    let url = line.trim().strip_prefix("slopc serve: ").unwrap_or_else(|| panic!("bad first line: {line}")).to_string();
+    let url = line.trim().strip_prefix("picle serve: ").unwrap_or_else(|| panic!("bad first line: {line}")).to_string();
     let base = url.split("/?").next().unwrap().to_string();
     let agent: Agent = Agent::config_builder().http_status_as_error(false).max_redirects(0).build().into();
     Server { child, url, base, agent }
@@ -87,7 +87,7 @@ fn srv_02_bearer() {
     assert_eq!(s.agent.get(&u).header("Authorization", "Bearer nope").call().unwrap().status(), 401);
     let (st, v) = s.get_json("/api/catalog");
     assert_eq!(st, 200);
-    assert_eq!(v.as_array().unwrap().len(), slopc::catalog::all().len());
+    assert_eq!(v.as_array().unwrap().len(), picle::catalog::all().len());
 }
 
 fn cookie_of(r: &ureq::http::Response<ureq::Body>) -> String {
@@ -104,7 +104,7 @@ fn srv_03_token_url_sets_cookie() {
     assert_eq!(r.status(), 303);
     assert_eq!(r.headers().get("location").unwrap(), "/");
     let cookie = cookie_of(&r);
-    assert_eq!(cookie, format!("slopc_token={TOKEN}"));
+    assert_eq!(cookie, format!("picle_token={TOKEN}"));
     let r = s.agent.get(format!("{}/api/catalog", s.base)).header("Cookie", &cookie).call().unwrap();
     assert_eq!(r.status(), 200);
 }
@@ -132,9 +132,9 @@ fn srv_05_origin_check() {
         }
         req.send_json(json!({ "path": path })).unwrap().status().as_u16()
     };
-    assert_eq!(post(Some("http://evil.example"), "a.slopc.json"), 403);
-    assert_eq!(post(Some(&s.base), "b.slopc.json"), 201);
-    assert_eq!(post(None, "c.slopc.json"), 201);
+    assert_eq!(post(Some("http://evil.example"), "a.picle.json"), 403);
+    assert_eq!(post(Some(&s.base), "b.picle.json"), 201);
+    assert_eq!(post(None, "c.picle.json"), 201);
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn srv_06_body_limit() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
     let body = vec![b' '; 17 << 20];
-    let r = s.agent.post(format!("{}/api/ops?path=a.slopc.json", s.base)).header("Authorization", auth()).send(&body[..]);
+    let r = s.agent.post(format!("{}/api/ops?path=a.picle.json", s.base)).header("Authorization", auth()).send(&body[..]);
     // The server may reset the connection after answering 413; both count as refusing the body.
     if let Ok(r) = r {
         assert_eq!(r.status(), 413);
@@ -153,20 +153,20 @@ fn srv_06_body_limit() {
 fn srv_07_full_flow() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    let (st, _) = s.post("/api/projects", &json!({ "path": "art/a.slopc.json", "width": 4, "height": 3 }));
+    let (st, _) = s.post("/api/projects", &json!({ "path": "art/a.picle.json", "width": 4, "height": 3 }));
     assert_eq!(st, 201);
-    assert_eq!(s.get_json("/api/projects").1["projects"], json!(["art/a.slopc.json"]));
-    let (st, v) = s.post("/api/ops?path=art/a.slopc.json", &solid_output());
+    assert_eq!(s.get_json("/api/projects").1["projects"], json!(["art/a.picle.json"]));
+    let (st, v) = s.post("/api/ops?path=art/a.picle.json", &solid_output());
     assert_eq!(st, 200, "{v}");
-    let (st, v) = s.get_json("/api/project?path=art/a.slopc.json");
+    let (st, v) = s.get_json("/api/project?path=art/a.picle.json");
     assert_eq!(st, 200);
     assert_eq!(v["project"]["nodes"]["bg"]["type"], "solid");
     assert!(v["keys"]["bg"].is_string() && v["keys"]["out"].is_string(), "{v}");
-    let (st, png) = s.get("/api/render?path=art/a.slopc.json");
+    let (st, png) = s.get("/api/render?path=art/a.picle.json");
     assert_eq!(st, 200);
-    let o = Command::new(bin()).args(["render", d.path().join("art/a.slopc.json").to_str().unwrap(), "-o", "-"]).output().unwrap();
+    let o = Command::new(bin()).args(["render", d.path().join("art/a.picle.json").to_str().unwrap(), "-o", "-"]).output().unwrap();
     assert_eq!(Surface::from_png(&png).unwrap(), Surface::from_png(&o.stdout).unwrap());
-    let (_, png2) = s.get("/api/render?path=art/a.slopc.json&node=bg&scale=2");
+    let (_, png2) = s.get("/api/render?path=art/a.picle.json&node=bg&scale=2");
     assert_eq!(Surface::from_png(&png2).unwrap().width, 8);
 }
 
@@ -174,19 +174,19 @@ fn srv_07_full_flow() {
 fn srv_08_rejected_ops() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
-    let before = std::fs::read(d.path().join("a.slopc.json")).unwrap();
-    let (st, v) = s.post("/api/ops?path=a.slopc.json", &json!([{ "op": "remove_node", "id": "zz" }]));
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
+    let before = std::fs::read(d.path().join("a.picle.json")).unwrap();
+    let (st, v) = s.post("/api/ops?path=a.picle.json", &json!([{ "op": "remove_node", "id": "zz" }]));
     assert_eq!(st, 422);
     assert_eq!(v["errors"][0]["code"], "unknown_node");
-    assert_eq!(std::fs::read(d.path().join("a.slopc.json")).unwrap(), before);
+    assert_eq!(std::fs::read(d.path().join("a.picle.json")).unwrap(), before);
 }
 
 #[test]
 fn srv_09_outside_root() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    let (st, v) = s.get_json("/api/project?path=../x.slopc.json");
+    let (st, v) = s.get_json("/api/project?path=../x.picle.json");
     assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("path_outside_root")));
 }
 
@@ -194,17 +194,17 @@ fn srv_09_outside_root() {
 fn srv_10_missing_project() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    assert_eq!(s.get_json("/api/project?path=nope.slopc.json").1["errors"][0]["code"], "not_found");
-    assert_eq!(s.get_json("/api/project?path=nope.slopc.json").0, 404);
-    assert_eq!(s.get("/api/render?path=nope.slopc.json").0, 404);
+    assert_eq!(s.get_json("/api/project?path=nope.picle.json").1["errors"][0]["code"], "not_found");
+    assert_eq!(s.get_json("/api/project?path=nope.picle.json").0, 404);
+    assert_eq!(s.get("/api/render?path=nope.picle.json").0, 404);
 }
 
 #[test]
 fn srv_11_no_target() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
-    let (st, b) = s.get("/api/render?path=a.slopc.json");
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
+    let (st, b) = s.get("/api/render?path=a.picle.json");
     let v: Json = serde_json::from_slice(&b).unwrap();
     assert_eq!((st, v["errors"][0]["code"].as_str()), (422, Some("no_target")));
 }
@@ -213,15 +213,15 @@ fn srv_11_no_target() {
 fn srv_12_events_follow_external_edits() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
     s.post(
-        "/api/ops?path=a.slopc.json",
+        "/api/ops?path=a.picle.json",
         &json!([
             { "op": "add_node", "id": "bg", "type": "solid" },
             { "op": "add_node", "id": "t", "type": "transform", "inputs": { "surface_in": { "ref": "bg" } } }
         ]),
     );
-    let r = s.agent.get(format!("{}/api/events?path=a.slopc.json", s.base)).header("Authorization", auth()).call().unwrap();
+    let r = s.agent.get(format!("{}/api/events?path=a.picle.json", s.base)).header("Authorization", auth()).call().unwrap();
     assert_eq!(r.status(), 200);
     let (tx, rx) = mpsc::channel::<Json>();
     std::thread::spawn(move || {
@@ -240,7 +240,7 @@ fn srv_12_events_follow_external_edits() {
     let start_t = Instant::now();
     let o = Command::new(bin())
         .current_dir(d.path())
-        .args(["edit", "a.slopc.json", "-"])
+        .args(["edit", "a.picle.json", "-"])
         .stdin(Stdio::piped())
         .spawn()
         .and_then(|mut c| {
@@ -344,10 +344,10 @@ fn srv_17_mcp_remote_host() {
     mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
     let call = |id: u64, method: &str, params: Json| mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })).2;
     assert_eq!(call(2, "tools/list", json!({}))["result"]["tools"].as_array().unwrap().len(), 7);
-    call(3, "tools/call", json!({ "name": "create_project", "arguments": { "path": "r.slopc.json", "width": 4, "height": 4 } }));
-    let edit = call(4, "tools/call", json!({ "name": "edit_project", "arguments": { "path": "r.slopc.json", "ops": solid_output() } }));
+    call(3, "tools/call", json!({ "name": "create_project", "arguments": { "path": "r.picle.json", "width": 4, "height": 4 } }));
+    let edit = call(4, "tools/call", json!({ "name": "edit_project", "arguments": { "path": "r.picle.json", "ops": solid_output() } }));
     assert_ne!(edit["result"]["isError"], json!(true), "{edit}");
-    let r = call(5, "tools/call", json!({ "name": "render", "arguments": { "path": "r.slopc.json" } }));
+    let r = call(5, "tools/call", json!({ "name": "render", "arguments": { "path": "r.picle.json" } }));
     assert!(r["result"]["content"].as_array().unwrap().iter().any(|c| c["type"] == "image"), "{r}");
 }
 
@@ -364,9 +364,9 @@ fn srv_18_upload_png() {
     let (st, v) = upload(&s, "assets/a.png", &img.to_png());
     assert_eq!(st, 201, "{v}");
     assert!(d.path().join("assets/a.png").is_file());
-    s.post("/api/projects", &json!({ "path": "u.slopc.json", "width": 2, "height": 2 }));
-    s.post("/api/ops?path=u.slopc.json", &json!([{ "op": "add_node", "id": "img", "type": "image", "inputs": { "path": "assets/a.png" } }]));
-    let (st, png) = s.get("/api/render?path=u.slopc.json&node=img");
+    s.post("/api/projects", &json!({ "path": "u.picle.json", "width": 2, "height": 2 }));
+    s.post("/api/ops?path=u.picle.json", &json!([{ "op": "add_node", "id": "img", "type": "image", "inputs": { "path": "assets/a.png" } }]));
+    let (st, png) = s.get("/api/render?path=u.picle.json&node=img");
     assert_eq!(st, 200);
     assert_eq!(Surface::from_png(&png).unwrap(), img);
 }
@@ -388,9 +388,9 @@ fn srv_19_upload_rejects() {
 fn srv_20_reads_are_not_changes() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
-    s.post("/api/ops?path=a.slopc.json", &solid_output());
-    let r = s.agent.get(format!("{}/api/events?path=a.slopc.json", s.base)).header("Authorization", auth()).call().unwrap();
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
+    s.post("/api/ops?path=a.picle.json", &solid_output());
+    let r = s.agent.get(format!("{}/api/events?path=a.picle.json", s.base)).header("Authorization", auth()).call().unwrap();
     let (tx, rx) = mpsc::channel::<String>();
     std::thread::spawn(move || {
         let mut reader = BufReader::new(r.into_body().into_reader());
@@ -404,8 +404,8 @@ fn srv_20_reads_are_not_changes() {
     });
     rx.recv_timeout(Duration::from_secs(5)).expect("connect event");
     for _ in 0..5 {
-        assert_eq!(s.get("/api/project?path=a.slopc.json").0, 200);
-        assert_eq!(s.get("/api/render?path=a.slopc.json").0, 200);
+        assert_eq!(s.get("/api/project?path=a.picle.json").0, 200);
+        assert_eq!(s.get("/api/render?path=a.picle.json").0, 200);
     }
     assert!(rx.recv_timeout(Duration::from_secs(1)).is_err(), "reads produced a changed event");
 }
@@ -414,16 +414,16 @@ fn srv_20_reads_are_not_changes() {
 fn srv_21_undo_redo_via_api() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
-    let file = || std::fs::read_to_string(d.path().join("a.slopc.json")).unwrap();
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
+    let file = || std::fs::read_to_string(d.path().join("a.picle.json")).unwrap();
     let original = file();
-    let (st, r) = s.post("/api/ops?path=a.slopc.json", &solid_output());
+    let (st, r) = s.post("/api/ops?path=a.picle.json", &solid_output());
     assert_eq!(st, 200);
     let edited = file();
-    let (st, _) = s.post("/api/ops?path=a.slopc.json", &r["undo"]);
+    let (st, _) = s.post("/api/ops?path=a.picle.json", &r["undo"]);
     assert_eq!(st, 200);
     assert_eq!(file(), original);
-    let (st, _) = s.post("/api/ops?path=a.slopc.json", &r["redo"]);
+    let (st, _) = s.post("/api/ops?path=a.picle.json", &r["redo"]);
     assert_eq!(st, 200);
     assert_eq!(file(), edited);
 }
@@ -432,16 +432,16 @@ fn srv_21_undo_redo_via_api() {
 fn srv_22_project_at_frame() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
+    s.post("/api/projects", &json!({ "path": "a.picle.json" }));
     s.post(
-        "/api/ops?path=a.slopc.json",
+        "/api/ops?path=a.picle.json",
         &json!([
             { "op": "set_settings", "frames": 10 },
             { "op": "add_node", "id": "bg", "type": "solid", "inputs": { "color": { "anim": [{ "time": 0, "value": "#000000" }, { "time": 9, "value": "#ffffff" }] } } }
         ]),
     );
-    let (_, f0) = s.get_json("/api/project?path=a.slopc.json");
-    let (st, f5) = s.get_json("/api/project?path=a.slopc.json&frame=5");
+    let (_, f0) = s.get_json("/api/project?path=a.picle.json");
+    let (st, f5) = s.get_json("/api/project?path=a.picle.json&frame=5");
     assert_eq!(st, 200);
     assert_eq!(f5["animated"]["bg"]["color"], "#8e8e8e");
     assert_ne!(f0["keys"]["bg"], f5["keys"]["bg"]);
@@ -451,10 +451,10 @@ fn srv_22_project_at_frame() {
 fn srv_23_export_and_file() {
     let d = tempfile::tempdir().unwrap();
     let s = start(d.path(), Some(TOKEN), None);
-    s.post("/api/projects", &json!({ "path": "a.slopc.json", "width": 4, "height": 4 }));
-    s.post("/api/ops?path=a.slopc.json", &json!([{ "op": "set_settings", "frames": 2 }]));
-    s.post("/api/ops?path=a.slopc.json", &solid_output());
-    let (st, v) = s.post("/api/export?path=a.slopc.json", &json!({ "out": "exports/f_%f.png" }));
+    s.post("/api/projects", &json!({ "path": "a.picle.json", "width": 4, "height": 4 }));
+    s.post("/api/ops?path=a.picle.json", &json!([{ "op": "set_settings", "frames": 2 }]));
+    s.post("/api/ops?path=a.picle.json", &solid_output());
+    let (st, v) = s.post("/api/export?path=a.picle.json", &json!({ "out": "exports/f_%f.png" }));
     assert_eq!(st, 200, "{v}");
     assert_eq!(v["files"], json!(["exports/f_1.png", "exports/f_2.png"]));
     let r = s.agent.get(format!("{}/api/file?path=exports/f_2.png", s.base)).header("Authorization", auth()).call().unwrap();
@@ -463,7 +463,7 @@ fn srv_23_export_and_file() {
     assert!(r.headers().get("content-disposition").unwrap().to_str().unwrap().starts_with("attachment"));
     let (_, body) = s.get("/api/file?path=exports/f_2.png");
     assert_eq!(body, std::fs::read(d.path().join("exports/f_2.png")).unwrap());
-    let (st, b) = s.get("/api/file?path=a.slopc.json");
+    let (st, b) = s.get("/api/file?path=a.picle.json");
     let v: Json = serde_json::from_slice(&b).unwrap();
     assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("bad_path")));
 }

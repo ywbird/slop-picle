@@ -2,11 +2,11 @@ mod common;
 
 use common::*;
 use serde_json::json;
-use slopc::project::{self, GInput, SaveError};
+use picle::project::{self, GInput, SaveError};
 use std::time::{Duration, Instant};
 
 const EXAMPLE: &str = r##"{
-  "slopc": 1,
+  "picle": 1,
   "settings": { "width": 32, "height": 32, "frames": 1, "fps": 12 },
   "nodes": {
     "bg":  { "type": "solid", "inputs": { "color": "#1a1c2c" } },
@@ -20,7 +20,7 @@ fn one(text: &str, code: &str) {
 
 #[test]
 fn pf_01_minimal_project_loads() {
-    let l = project::load_str(r#"{"slopc":1}"#);
+    let l = project::load_str(r#"{"picle":1}"#);
     assert!(l.errors.is_empty(), "{:?}", l.errors);
     let p = l.project.unwrap();
     assert_eq!((p.settings.width, p.settings.height, p.settings.frames), (32, 32, 1));
@@ -48,7 +48,7 @@ fn pf_03_not_json() {
 
 #[test]
 fn pf_04_version_2() {
-    one(r#"{"slopc":2}"#, "unsupported_version");
+    one(r#"{"picle":2}"#, "unsupported_version");
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn pf_05_version_missing() {
 
 #[test]
 fn pf_06_unknown_top_level_key() {
-    assert!(codes(r#"{"slopc":1,"extra":true}"#).contains(&"unknown_key".into()));
+    assert!(codes(r#"{"picle":1,"extra":true}"#).contains(&"unknown_key".into()));
 }
 
 #[test]
@@ -126,14 +126,14 @@ fn pf_15_out_of_range() {
 #[test]
 fn pf_16_settings_out_of_range() {
     for w in [0, 5000] {
-        let t = json!({ "slopc": 1, "settings": { "width": w } }).to_string();
+        let t = json!({ "picle": 1, "settings": { "width": w } }).to_string();
         assert!(codes(&t).contains(&"out_of_range".into()), "width {w}");
     }
 }
 
 #[test]
 fn pf_17_settings_too_large() {
-    let t = json!({ "slopc": 1, "settings": { "width": 4096, "height": 4096 } }).to_string();
+    let t = json!({ "picle": 1, "settings": { "width": 4096, "height": 4096 } }).to_string();
     assert!(codes(&t).contains(&"too_large".into()));
 }
 
@@ -231,7 +231,7 @@ fn pf_26_ref_to_unknown_type() {
 #[test]
 fn pf_27_round_trip() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     let p = project::load_str(EXAMPLE).project.unwrap();
     project::save(&path, &p).unwrap();
     let bytes1 = std::fs::read_to_string(&path).unwrap();
@@ -246,7 +246,7 @@ fn pf_27_round_trip() {
 #[test]
 fn pf_28_explicit_default_kept() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     let p = project::load_str(&project_json(4, 4, json!({ "bg": { "type": "solid", "inputs": { "color": "#ffffff" } } })))
         .project
         .unwrap();
@@ -257,7 +257,7 @@ fn pf_28_explicit_default_kept() {
 #[test]
 fn pf_29_invalid_not_saved() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     std::fs::write(&path, "original").unwrap();
     let p = project::load_str(&pf_25_text()).project.unwrap();
     match project::save(&path, &p) {
@@ -270,7 +270,7 @@ fn pf_29_invalid_not_saved() {
 #[test]
 fn pf_30_save_waits_for_lock() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     let lock = std::fs::File::create(project::lock_path(&path)).unwrap();
     lock.lock().unwrap();
     let start = Instant::now();
@@ -288,7 +288,7 @@ fn pf_30_save_waits_for_lock() {
 #[test]
 fn pf_31_failed_rename_keeps_original() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     std::fs::write(&path, "original").unwrap();
     let r = project::write_atomic_with(&path, b"new", |_, _| Err(std::io::Error::other("simulated")));
     assert!(r.is_err());
@@ -300,7 +300,7 @@ fn pf_31_failed_rename_keeps_original() {
 #[test]
 fn pf_32_label_kept_and_ignored() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     let with = project_json(4, 4, json!({ "bg": { "type": "solid", "label": "sky gradient", "inputs": { "color": "#ff0000" } } }));
     let p = project::load_str(&with).project.unwrap();
     assert!(project::validate(&p).is_empty());
@@ -322,7 +322,7 @@ fn pf_33_bad_label() {
 #[test]
 fn pf_34_missing_input_can_be_saved() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("a.slopc.json");
+    let path = dir.path().join("a.picle.json");
     let p = project::load_str(&project_json(4, 4, json!({ "out": { "type": "output" } }))).project.unwrap();
     project::save(&path, &p).unwrap();
     let l = project::load(&path).unwrap();

@@ -47,7 +47,7 @@ const catalog: Catalog = [
 ];
 
 const project: ProjectFile = {
-  slopc: 1,
+  picle: 1,
   nodes: {
     a: { type: "solid" },
     b: { type: "solid", pos: [10, 20] },
@@ -57,7 +57,7 @@ const project: ProjectFile = {
 
 describe("toFlow", () => {
   test("WEB-01 nodes and edges", () => {
-    const { nodes, edges } = toFlow(project, catalog, [], {}, "p.slopc.json");
+    const { nodes, edges } = toFlow(project, catalog, [], {}, "p.picle.json");
     expect(nodes.map((n) => n.id)).toEqual(["a", "b", "m"]);
     expect(edges).toHaveLength(2);
     const bg = edges.find((e) => e.targetHandle === "background")!;
@@ -67,7 +67,7 @@ describe("toFlow", () => {
   });
 
   test("WEB-02 layout by depth, pos kept", () => {
-    const { nodes } = toFlow(project, catalog, [], {}, "p.slopc.json");
+    const { nodes } = toFlow(project, catalog, [], {}, "p.picle.json");
     const pos = Object.fromEntries(nodes.map((n) => [n.id, n.position]));
     expect(pos.b).toEqual({ x: 10, y: 20 });
     expect(pos.a.x).toBe(0);
@@ -75,7 +75,7 @@ describe("toFlow", () => {
   });
 
   test("WEB-03 errors attached", () => {
-    const { nodes } = toFlow(project, catalog, [{ code: "x", node: "m", message: "boom" }], {}, "p.slopc.json");
+    const { nodes } = toFlow(project, catalog, [{ code: "x", node: "m", message: "boom" }], {}, "p.picle.json");
     expect(nodes.find((n) => n.id === "m")!.data.errors).toEqual(["boom"]);
     expect(nodes.find((n) => n.id === "a")!.data.errors).toEqual([]);
   });
@@ -88,7 +88,7 @@ test("WEB-04 connectOp", () => {
     input: "foreground",
     value: { ref: "a" },
   });
-  const p2: ProjectFile = { slopc: 1, nodes: { t: { type: "two" }, m: { type: "blend" } } };
+  const p2: ProjectFile = { picle: 1, nodes: { t: { type: "two" }, m: { type: "blend" } } };
   expect(connectOp(catalog, p2, { source: "t", sourceHandle: "out2", target: "m", targetHandle: "background" })!.value).toEqual({
     ref: "t.out2",
   });
@@ -111,8 +111,8 @@ test("WEB-06 op builders", () => {
 });
 
 test("WEB-07 thumbUrl", () => {
-  const u = thumbUrl("art/a b.slopc.json", "n1", "00ff");
-  expect(u).toContain("path=art%2Fa%20b.slopc.json");
+  const u = thumbUrl("art/a b.picle.json", "n1", "00ff");
+  expect(u).toContain("path=art%2Fa%20b.picle.json");
   expect(u).toContain("node=n1");
   expect(u).toContain("k=00ff");
 });
@@ -125,9 +125,9 @@ test("WEB-13 duplicateOp", () => {
 
 test("WEB-07b thumbFor keeps one URL per node and key", () => {
   const urls = new Map<string, string>();
-  const a = thumbFor(urls, "p.slopc.json", "n", "k1", 0);
-  expect(thumbFor(urls, "p.slopc.json", "n", "k1", 5)).toBe(a);
-  const b = thumbFor(urls, "p.slopc.json", "n", "k2", 5);
+  const a = thumbFor(urls, "p.picle.json", "n", "k1", 0);
+  expect(thumbFor(urls, "p.picle.json", "n", "k1", 5)).toBe(a);
+  const b = thumbFor(urls, "p.picle.json", "n", "k2", 5);
   expect(b).not.toBe(a);
   expect(b).toContain("frame=5");
 });

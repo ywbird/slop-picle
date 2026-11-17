@@ -2,10 +2,10 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::eval::Evaluator;
-use slopc::ops;
-use slopc::project::{self, Project};
-use slopc::surface::Surface;
+use picle::eval::Evaluator;
+use picle::ops;
+use picle::project::{self, Project};
+use picle::surface::Surface;
 use std::path::Path;
 use std::process::{Command, Output};
 
@@ -21,10 +21,10 @@ fn hex(c: [u8; 4]) -> String {
 /// A 4×4 project of `frames` frames: a 2×2 square in the middle whose colour is cut-keyed per frame, on transparency.
 fn write_project(dir: &Path, frames: u8) -> std::path::PathBuf {
     let keys: Vec<Json> = (0..frames).map(|i| json!({ "time": i, "value": hex(colour(i)), "ease_out_type": "cut" })).collect();
-    let p = dir.join("p.slopc.json");
+    let p = dir.join("p.picle.json");
     std::fs::write(
         &p,
-        json!({ "slopc": 1, "settings": { "width": 4, "height": 4, "frames": frames, "fps": 12 }, "nodes": {
+        json!({ "picle": 1, "settings": { "width": 4, "height": 4, "frames": frames, "fps": 12 }, "nodes": {
             "src": { "type": "shape", "inputs": { "half_size": [0.25, 0.25], "shape_color": { "anim": keys } } },
             "out": { "type": "output", "inputs": { "surface_in": { "ref": "src" } } }
         } })
@@ -35,7 +35,7 @@ fn write_project(dir: &Path, frames: u8) -> std::path::PathBuf {
 }
 
 fn export(dir: &Path, args: &[&str]) -> Output {
-    let mut a = vec!["export", "p.slopc.json"];
+    let mut a = vec!["export", "p.picle.json"];
     a.extend_from_slice(args);
     Command::new(bin()).current_dir(dir).args(&a).output().unwrap()
 }
@@ -45,7 +45,7 @@ fn png(dir: &Path, name: &str) -> Surface {
 }
 
 fn names(dir: &Path) -> Vec<String> {
-    let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).filter(|n| !n.ends_with(".slopc.json") && !n.ends_with(".lock")).collect();
+    let mut v: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).filter(|n| !n.ends_with(".picle.json") && !n.ends_with(".lock")).collect();
     v.sort();
     v
 }
@@ -165,8 +165,8 @@ fn ex_08_bad_paths() {
 fn ex_09_many_colours_gif() {
     let d = tempfile::tempdir().unwrap();
     std::fs::write(
-        d.path().join("p.slopc.json"),
-        json!({ "slopc": 1, "settings": { "width": 32, "height": 32 }, "nodes": {
+        d.path().join("p.picle.json"),
+        json!({ "picle": 1, "settings": { "width": 32, "height": 32 }, "nodes": {
             "n": { "type": "noise", "inputs": { "color_mode": "rgb" } },
             "out": { "type": "output", "inputs": { "surface_in": { "ref": "n" } } } } })
         .to_string(),
@@ -199,7 +199,7 @@ fn sheet(frames: u8, inputs: Json) -> Project {
     let keys: Vec<Json> = (0..frames).map(|i| json!({ "time": i, "value": hex(colour(i)), "ease_out_type": "cut" })).collect();
     let mut inputs = inputs;
     inputs["sprites"] = json!({ "ref": "src" });
-    let text = json!({ "slopc": 1, "settings": { "width": 3, "height": 2, "frames": frames }, "nodes": {
+    let text = json!({ "picle": 1, "settings": { "width": 3, "height": 2, "frames": frames }, "nodes": {
         "src": { "type": "solid", "inputs": { "color": { "anim": keys } } },
         "sh": { "type": "render_sprite_sheet", "inputs": inputs } } })
     .to_string();
@@ -268,7 +268,7 @@ fn n_sheet_06_skip_empty() {
 
 #[test]
 fn n_sheet_07_alignment() {
-    let text = json!({ "slopc": 1, "settings": { "width": 4, "height": 4, "frames": 2 }, "nodes": {
+    let text = json!({ "picle": 1, "settings": { "width": 4, "height": 4, "frames": 2 }, "nodes": {
         "src": { "type": "solid", "inputs": { "color": "#ff0000", "dimension": { "anim": [
             { "time": 0, "value": [2, 2], "ease_out_type": "cut" }, { "time": 1, "value": [4, 4] }] } } },
         "sh": { "type": "render_sprite_sheet", "inputs": { "sprites": { "ref": "src" }, "alignment": "middle" } } } })

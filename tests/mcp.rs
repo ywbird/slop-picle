@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::surface::Surface;
+use picle::surface::Surface;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -121,18 +121,18 @@ fn mcp_01_tools_list() {
 fn mcp_02_create_and_list() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    let (err, _, _) = c.call("create_project", json!({ "path": "a.slopc.json" }));
+    let (err, _, _) = c.call("create_project", json!({ "path": "a.picle.json" }));
     assert!(!err);
     let (_, v, _) = c.call("list_projects", json!({}));
-    assert_eq!(v["projects"], json!(["a.slopc.json"]));
+    assert_eq!(v["projects"], json!(["a.picle.json"]));
 }
 
 #[test]
 fn mcp_03_create_twice() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json" }));
-    let (err, v, _) = c.call("create_project", json!({ "path": "a.slopc.json" }));
+    c.call("create_project", json!({ "path": "a.picle.json" }));
+    let (err, v, _) = c.call("create_project", json!({ "path": "a.picle.json" }));
     assert!(err);
     assert_eq!(v["errors"][0]["code"], "exists");
 }
@@ -141,10 +141,10 @@ fn mcp_03_create_twice() {
 fn mcp_04_edit_and_render() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json", "width": 4, "height": 2 }));
-    let (err, v, _) = c.call("edit_project", json!({ "path": "a.slopc.json", "ops": solid_and_output() }));
+    c.call("create_project", json!({ "path": "a.picle.json", "width": 4, "height": 2 }));
+    let (err, v, _) = c.call("edit_project", json!({ "path": "a.picle.json", "ops": solid_and_output() }));
     assert!(!err, "{v}");
-    let (err, v, img) = c.call("render", json!({ "path": "a.slopc.json" }));
+    let (err, v, img) = c.call("render", json!({ "path": "a.picle.json" }));
     assert!(!err, "{v}");
     let s = Surface::from_png(&img.unwrap()).unwrap();
     let k = v["scale"].as_u64().unwrap() as u32;
@@ -159,9 +159,9 @@ fn mcp_04_edit_and_render() {
 fn mcp_05_default_scale() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json", "width": 8, "height": 8 }));
-    c.call("edit_project", json!({ "path": "a.slopc.json", "ops": solid_and_output() }));
-    let (_, v, img) = c.call("render", json!({ "path": "a.slopc.json" }));
+    c.call("create_project", json!({ "path": "a.picle.json", "width": 8, "height": 8 }));
+    c.call("edit_project", json!({ "path": "a.picle.json", "ops": solid_and_output() }));
+    let (_, v, img) = c.call("render", json!({ "path": "a.picle.json" }));
     assert_eq!(v["scale"], 32);
     let s = Surface::from_png(&img.unwrap()).unwrap();
     assert_eq!((s.width, s.height), (256, 256));
@@ -173,15 +173,15 @@ fn mcp_06_stats() {
     let pix = surface(4, 4, |x, y| if (x, y) == (1, 2) { [9, 9, 9, 255] } else { [0, 0, 0, 0] });
     write_png(d.path(), "p.png", &pix);
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json", "width": 4, "height": 4 }));
+    c.call("create_project", json!({ "path": "a.picle.json", "width": 4, "height": 4 }));
     c.call(
         "edit_project",
-        json!({ "path": "a.slopc.json", "ops": [
+        json!({ "path": "a.picle.json", "ops": [
             { "op": "add_node", "id": "img", "type": "image", "inputs": { "path": "p.png" } },
             { "op": "add_node", "id": "out", "type": "output", "inputs": { "surface_in": { "ref": "img" } } }
         ] }),
     );
-    let (err, v, _) = c.call("render", json!({ "path": "a.slopc.json" }));
+    let (err, v, _) = c.call("render", json!({ "path": "a.picle.json" }));
     assert!(!err, "{v}");
     assert_eq!(v["opaque_bbox"], json!([1, 2, 1, 1]));
     assert_eq!(v["colors"], 2);
@@ -191,9 +191,9 @@ fn mcp_06_stats() {
 fn mcp_07_read_project() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json" }));
-    c.call("edit_project", json!({ "path": "a.slopc.json", "ops": [{ "op": "add_node", "id": "o", "type": "output" }] }));
-    let (err, v, _) = c.call("read_project", json!({ "path": "a.slopc.json" }));
+    c.call("create_project", json!({ "path": "a.picle.json" }));
+    c.call("edit_project", json!({ "path": "a.picle.json", "ops": [{ "op": "add_node", "id": "o", "type": "output" }] }));
+    let (err, v, _) = c.call("read_project", json!({ "path": "a.picle.json" }));
     assert!(!err);
     assert_eq!(v["project"]["nodes"]["o"]["type"], "output");
     assert_eq!(v["errors"][0]["code"], "missing_input");
@@ -203,12 +203,12 @@ fn mcp_07_read_project() {
 fn mcp_08_rejected_edit() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json" }));
-    let before = std::fs::read(d.path().join("a.slopc.json")).unwrap();
-    let (err, v, _) = c.call("edit_project", json!({ "path": "a.slopc.json", "ops": [{ "op": "remove_node", "id": "x" }] }));
+    c.call("create_project", json!({ "path": "a.picle.json" }));
+    let before = std::fs::read(d.path().join("a.picle.json")).unwrap();
+    let (err, v, _) = c.call("edit_project", json!({ "path": "a.picle.json", "ops": [{ "op": "remove_node", "id": "x" }] }));
     assert!(err);
     assert_eq!(v["ok"], false);
-    assert_eq!(std::fs::read(d.path().join("a.slopc.json")).unwrap(), before);
+    assert_eq!(std::fs::read(d.path().join("a.picle.json")).unwrap(), before);
 }
 
 #[test]
@@ -220,12 +220,12 @@ fn mcp_09_outside_root() {
     std::fs::create_dir(&outside).unwrap();
     std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
     let mut c = Client::start(&root);
-    for p in ["../x.slopc.json", "/tmp/x.slopc.json", "link/x.slopc.json"] {
+    for p in ["../x.picle.json", "/tmp/x.picle.json", "link/x.picle.json"] {
         let (err, v, _) = c.call("create_project", json!({ "path": p }));
         assert!(err, "{p}");
         assert_eq!(v["errors"][0]["code"], "path_outside_root", "{p}: {v}");
     }
-    assert!(!outside.join("x.slopc.json").exists());
+    assert!(!outside.join("x.picle.json").exists());
 }
 
 #[test]
@@ -244,15 +244,15 @@ fn mcp_11_image_outside_root() {
     std::fs::create_dir(&root).unwrap();
     write_png(parent.path(), "secret.png", &surface(1, 1, |_, _| [1, 1, 1, 255]));
     let mut c = Client::start(&root);
-    c.call("create_project", json!({ "path": "a.slopc.json", "width": 1, "height": 1 }));
+    c.call("create_project", json!({ "path": "a.picle.json", "width": 1, "height": 1 }));
     c.call(
         "edit_project",
-        json!({ "path": "a.slopc.json", "ops": [
+        json!({ "path": "a.picle.json", "ops": [
             { "op": "add_node", "id": "img", "type": "image", "inputs": { "path": "../secret.png" } },
             { "op": "add_node", "id": "out", "type": "output", "inputs": { "surface_in": { "ref": "img" } } }
         ] }),
     );
-    let (err, v, _) = c.call("render", json!({ "path": "a.slopc.json" }));
+    let (err, v, _) = c.call("render", json!({ "path": "a.picle.json" }));
     assert!(err);
     assert_eq!(v["errors"][0]["code"], "eval_error");
 }
@@ -263,49 +263,49 @@ fn mcp_12_node_types() {
     let mut c = Client::start(d.path());
     let (_, v, _) = c.call("list_node_types", json!({}));
     let arr = v.as_array().unwrap();
-    assert_eq!(arr.len(), slopc::catalog::all().len());
+    assert_eq!(arr.len(), picle::catalog::all().len());
     assert!(arr[0].get("inputs").is_none() && arr[0].get("description").is_some());
     let (_, v, _) = c.call("list_node_types", json!({ "type": "blend" }));
-    assert_eq!(v, slopc::catalog::def_json(slopc::catalog::get("blend").unwrap()));
+    assert_eq!(v, picle::catalog::def_json(picle::catalog::get("blend").unwrap()));
 }
 
 #[test]
 fn mcp_13_round_trip() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "art/s.slopc.json", "width": 16, "height": 16 }));
+    c.call("create_project", json!({ "path": "art/s.picle.json", "width": 16, "height": 16 }));
     let (err, v, _) = c.call(
         "edit_project",
-        json!({ "path": "art/s.slopc.json", "ops": [
+        json!({ "path": "art/s.picle.json", "ops": [
             { "op": "add_node", "type": "noise", "inputs": { "color_mode": "hsv" } },
             { "op": "add_node", "type": "transform", "inputs": { "surface_in": { "ref": "noise1" }, "rotation": 90 } },
             { "op": "add_node", "type": "output", "inputs": { "surface_in": { "ref": "transform1" } } }
         ] }),
     );
     assert!(!err, "{v}");
-    let (err, v, img) = c.call("render", json!({ "path": "art/s.slopc.json" }));
+    let (err, v, img) = c.call("render", json!({ "path": "art/s.picle.json" }));
     assert!(!err, "{v}");
     assert!(!img.unwrap().is_empty());
     let (_, v, _) = c.call("list_projects", json!({}));
-    assert_eq!(v["projects"], json!(["art/s.slopc.json"]));
+    assert_eq!(v["projects"], json!(["art/s.picle.json"]));
 }
 
 #[test]
 fn mcp_14_export() {
     let d = tempfile::tempdir().unwrap();
     let mut c = Client::start(d.path());
-    c.call("create_project", json!({ "path": "a.slopc.json", "width": 4, "height": 4 }));
-    c.call("edit_project", json!({ "path": "a.slopc.json", "ops": [
+    c.call("create_project", json!({ "path": "a.picle.json", "width": 4, "height": 4 }));
+    c.call("edit_project", json!({ "path": "a.picle.json", "ops": [
         { "op": "set_settings", "frames": 3 },
         { "op": "add_node", "id": "s", "type": "solid", "inputs": { "color": { "anim": [{ "time": 0, "value": "#000000" }, { "time": 2, "value": "#ffffff" }] } } },
         { "op": "add_node", "id": "out", "type": "output", "inputs": { "surface_in": { "ref": "s" } } }
     ] }));
-    let (err, v, _) = c.call("export", json!({ "path": "a.slopc.json", "out": "exports/a.gif" }));
+    let (err, v, _) = c.call("export", json!({ "path": "a.picle.json", "out": "exports/a.gif" }));
     assert!(!err, "{v}");
     assert_eq!(v["files"], json!(["exports/a.gif"]));
     assert_eq!(v["frames"], json!([0, 1, 2]));
     assert!(d.path().join("exports/a.gif").is_file());
-    let (err, v, _) = c.call("export", json!({ "path": "a.slopc.json", "out": "../a.gif" }));
+    let (err, v, _) = c.call("export", json!({ "path": "a.picle.json", "out": "../a.gif" }));
     assert!(err);
     assert_eq!(v["errors"][0]["code"], "path_outside_root");
 }

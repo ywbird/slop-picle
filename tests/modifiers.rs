@@ -3,7 +3,7 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::surface::Surface;
+use picle::surface::Surface;
 
 const WHITE: [u8; 4] = [255, 255, 255, 255];
 const BLACK: [u8; 4] = [0, 0, 0, 255];
@@ -87,7 +87,7 @@ fn n_mod_08_uv_map() {
 
 #[test]
 fn n_mod_09_catalog() {
-    let names = |ty: &str| -> Vec<&str> { slopc::catalog::get(ty).unwrap().inputs.iter().map(|i| i.name).collect() };
+    let names = |ty: &str| -> Vec<&str> { picle::catalog::get(ty).unwrap().inputs.iter().map(|i| i.name).collect() };
     for ty in ["flip", "blur", "dither", "threshold", "displace", "invert", "color_replace", "colorize", "greyscale"] {
         let n = names(ty);
         assert!(["mask", "mix", "invert_mask", "mask_feather", "channel"].iter().all(|i| n.contains(i)), "{ty}: {n:?}");

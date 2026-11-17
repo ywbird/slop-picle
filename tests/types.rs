@@ -2,8 +2,8 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::catalog;
-use slopc::types::{Type, parse_color};
+use picle::catalog;
+use picle::types::{Type, parse_color};
 
 fn input_errors(ty: &str, input: &str, value: Json) -> Vec<String> {
     let mut inputs = serde_json::Map::new();
@@ -77,7 +77,7 @@ fn ty_07_catalog_rules() {
             } else {
                 let d = &j["default"];
                 assert!(!d.is_null(), "{}.{} lacks default", def.ty, i.name);
-                assert!(slopc::types::check_literal(i, d).is_ok(), "{}.{} default {d} invalid", def.ty, i.name);
+                assert!(picle::types::check_literal(i, d).is_ok(), "{}.{} default {d} invalid", def.ty, i.name);
             }
             if i.ty == Type::Enum {
                 assert!(!i.options.is_empty());

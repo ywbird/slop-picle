@@ -2,8 +2,8 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::ops;
-use slopc::project::{self, Project};
+use picle::ops;
+use picle::project::{self, Project};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -193,7 +193,7 @@ fn op_22_missing_input_warning() {
 
 fn setup() -> (tempfile::TempDir, std::path::PathBuf) {
     let d = tempfile::tempdir().unwrap();
-    let path = d.path().join("a.slopc.json");
+    let path = d.path().join("a.picle.json");
     project::save(&path, &base()).unwrap();
     (d, path)
 }
@@ -202,7 +202,7 @@ fn setup() -> (tempfile::TempDir, std::path::PathBuf) {
 fn op_23_cli_edit() {
     let (d, path) = setup();
     std::fs::write(d.path().join("ops.json"), r##"[{"op":"set_input","id":"bg","input":"color","value":"#123456"}]"##).unwrap();
-    let o = Command::new(bin()).current_dir(d.path()).args(["edit", "a.slopc.json", "ops.json"]).output().unwrap();
+    let o = Command::new(bin()).current_dir(d.path()).args(["edit", "a.picle.json", "ops.json"]).output().unwrap();
     assert_eq!(o.status.code(), Some(0), "{o:?}");
     assert_eq!(project::load(&path).unwrap().project.unwrap().nodes["bg"].inputs["color"], json!("#123456"));
 }
@@ -212,7 +212,7 @@ fn op_24_cli_edit_rejected() {
     let (d, path) = setup();
     let before = std::fs::read(&path).unwrap();
     std::fs::write(d.path().join("ops.json"), r#"[{"op":"remove_node","id":"zz"}]"#).unwrap();
-    let o = Command::new(bin()).current_dir(d.path()).args(["edit", "a.slopc.json", "ops.json", "--json"]).output().unwrap();
+    let o = Command::new(bin()).current_dir(d.path()).args(["edit", "a.picle.json", "ops.json", "--json"]).output().unwrap();
     assert_eq!(o.status.code(), Some(1));
     let v: Json = serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!(v["ok"], false);
@@ -223,7 +223,7 @@ fn op_24_cli_edit_rejected() {
 fn edit_stdin(dir: &std::path::Path, input: &str) -> std::process::Output {
     let mut child = Command::new(bin())
         .current_dir(dir)
-        .args(["edit", "a.slopc.json", "-"])
+        .args(["edit", "a.picle.json", "-"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -256,7 +256,7 @@ fn op_27_concurrent_edits() {
         .map(|i| {
             let mut c = Command::new(bin())
                 .current_dir(d.path())
-                .args(["edit", "a.slopc.json", "-"])
+                .args(["edit", "a.picle.json", "-"])
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .spawn()

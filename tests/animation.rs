@@ -2,13 +2,13 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::eval::Evaluator;
-use slopc::ops;
-use slopc::project::{self, Project};
-use slopc::types::Value;
+use picle::eval::Evaluator;
+use picle::ops;
+use picle::project::{self, Project};
+use picle::types::Value;
 
 fn proj(frames: i64, nodes: Json) -> Project {
-    let text = json!({ "slopc": 1, "settings": { "width": 2, "height": 2, "frames": frames, "fps": 12 }, "nodes": nodes }).to_string();
+    let text = json!({ "picle": 1, "settings": { "width": 2, "height": 2, "frames": frames, "fps": 12 }, "nodes": nodes }).to_string();
     let l = project::load_str(&text);
     assert!(l.blocking().is_empty(), "{:?}", l.errors);
     l.project.unwrap()
@@ -31,7 +31,7 @@ fn animated_number(frames: i64, anim: Json) -> Project {
 }
 
 fn input_errors(nodes: Json, node: &str, input: &str) -> Vec<String> {
-    let text = json!({ "slopc": 1, "nodes": nodes }).to_string();
+    let text = json!({ "picle": 1, "nodes": nodes }).to_string();
     project::load_str(&text)
         .errors
         .into_iter()
@@ -113,7 +113,7 @@ fn an_07_cut() {
 
 #[test]
 fn an_08_bezier_ease() {
-    let e = |r: f64| slopc::anim::bezier_ease([0.5, 0.0], [0.5, 1.0], r);
+    let e = |r: f64| picle::anim::bezier_ease([0.5, 0.0], [0.5, 1.0], r);
     assert!((e(0.5) - 0.5).abs() < 1e-4, "{}", e(0.5));
     assert!(e(0.25) < 0.25);
     assert!((e(0.25) + e(0.75) - 1.0).abs() < 1e-4);
@@ -202,15 +202,15 @@ fn grey_at(p: &Project, target: &str, f: i64) -> Option<u8> {
 #[test]
 fn an_13_render_frames() {
     let d = tempfile::tempdir().unwrap();
-    let path = d.path().join("a.slopc.json");
-    std::fs::write(&path, json!({ "slopc": 1, "settings": { "width": 2, "height": 2, "frames": 5 }, "nodes": { "src": frame_coded(5) } }).to_string()).unwrap();
+    let path = d.path().join("a.picle.json");
+    std::fs::write(&path, json!({ "picle": 1, "settings": { "width": 2, "height": 2, "frames": 5 }, "nodes": { "src": frame_coded(5) } }).to_string()).unwrap();
     for f in 0..5 {
         let o = std::process::Command::new(bin())
             .args(["render", path.to_str().unwrap(), "-o", "-", "--node", "src", "--frame", &f.to_string()])
             .output()
             .unwrap();
         assert!(o.status.success());
-        let s = slopc::surface::Surface::from_png(&o.stdout).unwrap();
+        let s = picle::surface::Surface::from_png(&o.stdout).unwrap();
         assert_eq!(s.pixel(0, 0)[0], (f * 20) as u8);
     }
 }
@@ -363,7 +363,7 @@ fn ty_22_any_type() {
         if !value.is_null() {
             nodes["d"]["inputs"]["value"] = value;
         }
-        let text = json!({ "slopc": 1, "nodes": nodes }).to_string();
+        let text = json!({ "picle": 1, "nodes": nodes }).to_string();
         project::load_str(&text).errors.into_iter().map(|e| e.code).collect::<Vec<_>>()
     };
     assert!(errs(json!({ "ref": "col" })).is_empty());

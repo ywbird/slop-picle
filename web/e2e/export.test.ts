@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..", "..");
-const bin = join(root, "target", "debug", "slopc");
-const dir = mkdtempSync(join(tmpdir(), "slopc-export-"));
+const bin = join(root, "target", "debug", "picle");
+const dir = mkdtempSync(join(tmpdir(), "picle-export-"));
 
 let server: ReturnType<typeof Bun.spawn>;
 let browser: Browser;
@@ -15,9 +15,9 @@ let page: Page;
 
 beforeAll(async () => {
   writeFileSync(
-    join(dir, "e.slopc.json"),
+    join(dir, "e.picle.json"),
     JSON.stringify({
-      slopc: 1,
+      picle: 1,
       settings: { width: 4, height: 4, frames: 4, fps: 4 },
       nodes: {
         s: { type: "solid", pos: [0, 0], inputs: { color: { anim: [{ time: 0, value: "#000000" }, { time: 3, value: "#ffffff" }] } } },
@@ -29,11 +29,11 @@ beforeAll(async () => {
   const reader = server.stdout.getReader();
   let text = "";
   while (!text.includes("\n")) text += new TextDecoder().decode((await reader.read()).value);
-  const url = text.trim().replace("slopc serve: ", "");
+  const url = text.trim().replace("picle serve: ", "");
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/sbin/chromium" });
   page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await page.goto(url);
-  await page.goto(url.split("/?")[0] + "/#/edit/e.slopc.json");
+  await page.goto(url.split("/?")[0] + "/#/edit/e.picle.json");
   await page.waitForSelector(".svelte-flow__node");
 }, 30000);
 

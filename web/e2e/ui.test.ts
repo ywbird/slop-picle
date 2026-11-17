@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..", "..");
-const bin = join(root, "target", "debug", "slopc");
+const bin = join(root, "target", "debug", "picle");
 const chrome = process.env.CHROMIUM ?? "/usr/sbin/chromium";
-const dir = mkdtempSync(join(tmpdir(), "slopc-e2e-"));
-const file = join(dir, "p.slopc.json");
+const dir = mkdtempSync(join(tmpdir(), "picle-e2e-"));
+const file = join(dir, "p.picle.json");
 
 let server: ReturnType<typeof Bun.spawn>;
 let browser: Browser;
@@ -23,7 +23,7 @@ beforeAll(async () => {
   writeFileSync(
     file,
     JSON.stringify({
-      slopc: 1,
+      picle: 1,
       settings: { width: 16, height: 16 },
       nodes: {
         bg: { type: "solid", inputs: { color: "#336699" }, pos: [0, 0] },
@@ -36,11 +36,11 @@ beforeAll(async () => {
   const reader = server.stdout.getReader();
   let text = "";
   while (!text.includes("\n")) text += new TextDecoder().decode((await reader.read()).value);
-  url = text.trim().replace("slopc serve: ", "");
+  url = text.trim().replace("picle serve: ", "");
   browser = await chromium.launch({ executablePath: chrome, headless: true });
   page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await page.goto(url);
-  await page.goto(url.split("/?")[0] + "/#/edit/p.slopc.json");
+  await page.goto(url.split("/?")[0] + "/#/edit/p.picle.json");
   await page.waitForSelector(".svelte-flow__node");
 }, 30000);
 
@@ -90,10 +90,10 @@ test("WEB-11 upload a PNG into an image node", async () => {
   expect(await add.exited).toBe(0);
   await page.waitForSelector('.svelte-flow__node[data-id="pic"]');
   await page.locator('.svelte-flow__node[data-id="pic"] .head').click();
-  // A 3x2 PNG made with the slopc CLI.
+  // A 3x2 PNG made with the picle CLI.
   const png = join(dir, "src.png");
-  const mk = join(dir, "mk.slopc.json");
-  writeFileSync(mk, JSON.stringify({ slopc: 1, settings: { width: 3, height: 2 }, nodes: { s: { type: "solid" } } }));
+  const mk = join(dir, "mk.picle.json");
+  writeFileSync(mk, JSON.stringify({ picle: 1, settings: { width: 3, height: 2 }, nodes: { s: { type: "solid" } } }));
   expect(await Bun.spawn([bin, "render", mk, "-o", png, "--node", "s"]).exited).toBe(0);
   await page.locator('.popup input[type="file"]').setInputFiles(png);
   for (let i = 0; i < 50 && read().nodes.pic.inputs.path !== "assets/src.png"; i++) await Bun.sleep(100);

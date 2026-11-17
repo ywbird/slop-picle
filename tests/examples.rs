@@ -1,12 +1,12 @@
-// The kimchi example project (examples/kimchi.slopc.json): valid, 24 frames, and the turntable turns.
+// The kimchi example project (examples/kimchi.picle.json): valid, 24 frames, and the turntable turns.
 
-use slopc::eval::Evaluator;
-use slopc::project;
+use picle::eval::Evaluator;
+use picle::project;
 use std::path::Path;
 
 #[test]
 fn kimchi_loads_and_turns() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/kimchi.slopc.json");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/kimchi.picle.json");
     let l = project::load(&path).unwrap();
     assert!(l.errors.is_empty(), "{:?}", l.errors);
     let p = l.project.unwrap();

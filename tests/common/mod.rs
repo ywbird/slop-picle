@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
 use serde_json::{Value as Json, json};
-use slopc::eval::Evaluator;
-use slopc::project::{self, Error};
-use slopc::surface::Surface;
+use picle::eval::Evaluator;
+use picle::project::{self, Error};
+use picle::surface::Surface;
 use std::path::{Path, PathBuf};
 
 pub fn project_json(width: u32, height: u32, nodes: Json) -> String {
-    json!({ "slopc": 1, "settings": { "width": width, "height": height }, "nodes": nodes }).to_string()
+    json!({ "picle": 1, "settings": { "width": width, "height": height }, "nodes": nodes }).to_string()
 }
 
 pub fn errors(text: &str) -> Vec<Error> {
@@ -85,15 +85,15 @@ pub fn golden_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden").join(name)
 }
 
-/// Compare with a golden image. `SLOPC_UPDATE_GOLDEN=1` rewrites it.
+/// Compare with a golden image. `PICLE_UPDATE_GOLDEN=1` rewrites it.
 pub fn assert_golden(name: &str, s: &Surface, tol: u8) {
     let path = golden_path(name);
-    if std::env::var("SLOPC_UPDATE_GOLDEN").is_ok_and(|v| v == "1") {
+    if std::env::var("PICLE_UPDATE_GOLDEN").is_ok_and(|v| v == "1") {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, s.to_png()).unwrap();
         return;
     }
-    let bytes = std::fs::read(&path).unwrap_or_else(|_| panic!("missing golden {name}; run with SLOPC_UPDATE_GOLDEN=1"));
+    let bytes = std::fs::read(&path).unwrap_or_else(|_| panic!("missing golden {name}; run with PICLE_UPDATE_GOLDEN=1"));
     let g = Surface::from_png(&bytes).unwrap();
     assert_eq!((g.width, g.height), (s.width, s.height), "golden {name} size");
     for y in 0..s.height {
@@ -119,5 +119,5 @@ pub fn unit(h: u32) -> f32 {
 }
 
 pub fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_slopc")
+    env!("CARGO_BIN_EXE_picle")
 }

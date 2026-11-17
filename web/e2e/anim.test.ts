@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..", "..");
-const bin = join(root, "target", "debug", "slopc");
-const dir = mkdtempSync(join(tmpdir(), "slopc-anim-"));
-const file = join(dir, "a.slopc.json");
+const bin = join(root, "target", "debug", "picle");
+const dir = mkdtempSync(join(tmpdir(), "picle-anim-"));
+const file = join(dir, "a.picle.json");
 const read = () => JSON.parse(readFileSync(file, "utf8"));
 const grey = (i: number) => "#" + (i * 60).toString(16).padStart(2, "0").repeat(3);
 
@@ -20,7 +20,7 @@ beforeAll(async () => {
   writeFileSync(
     file,
     JSON.stringify({
-      slopc: 1,
+      picle: 1,
       settings: { width: 4, height: 4, frames: 4, fps: 4 },
       nodes: {
         a: { type: "solid", pos: [0, 0], inputs: { color: { anim: [0, 1, 2, 3].map((i) => ({ time: i, value: grey(i), ease_out_type: "cut" })) } } },
@@ -32,11 +32,11 @@ beforeAll(async () => {
   const reader = server.stdout.getReader();
   let text = "";
   while (!text.includes("\n")) text += new TextDecoder().decode((await reader.read()).value);
-  const url = text.trim().replace("slopc serve: ", "");
+  const url = text.trim().replace("picle serve: ", "");
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/sbin/chromium" });
   page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await page.goto(url);
-  await page.goto(url.split("/?")[0] + "/#/edit/a.slopc.json");
+  await page.goto(url.split("/?")[0] + "/#/edit/a.picle.json");
   await page.waitForSelector(".svelte-flow__node");
 }, 30000);
 

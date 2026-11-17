@@ -2,8 +2,8 @@ mod common;
 
 use common::*;
 use serde_json::json;
-use slopc::eval::Evaluator;
-use slopc::project;
+use picle::eval::Evaluator;
+use picle::project;
 use std::process::Command;
 
 fn load(text: &str) -> project::Project {
@@ -137,7 +137,7 @@ fn ev_12_missing_input_in_dependencies() {
 }
 
 fn write_project(dir: &std::path::Path) -> std::path::PathBuf {
-    let path = dir.join("p.slopc.json");
+    let path = dir.join("p.picle.json");
     std::fs::write(
         &path,
         project_json(
@@ -158,7 +158,7 @@ fn gpu_01_no_adapter() {
     let dir = tempfile::tempdir().unwrap();
     let path = write_project(dir.path());
     let out = Command::new(bin())
-        .env("SLOPC_ADAPTER", "no-such-gpu")
+        .env("PICLE_ADAPTER", "no-such-gpu")
         .args(["render", path.to_str().unwrap(), "-o", dir.path().join("o.png").to_str().unwrap(), "--json"])
         .output()
         .unwrap();
@@ -170,14 +170,14 @@ fn gpu_01_no_adapter() {
 fn gpu_02_validate_never_opens_gpu() {
     let dir = tempfile::tempdir().unwrap();
     let path = write_project(dir.path());
-    let out = Command::new(bin()).env("SLOPC_ADAPTER", "no-such-gpu").args(["validate", path.to_str().unwrap()]).output().unwrap();
+    let out = Command::new(bin()).env("PICLE_ADAPTER", "no-such-gpu").args(["validate", path.to_str().unwrap()]).output().unwrap();
     assert_eq!(out.status.code(), Some(0));
 }
 
 #[test]
 fn gpu_03_upload_readback() {
     let s = surface(3, 2, |x, y| [x as u8 * 50 + 1, y as u8 * 90 + 2, 200, if x == 1 { 0 } else { 255 }]);
-    let back = slopc::gpu::Gpu::get().unwrap().passthrough(&s);
+    let back = picle::gpu::Gpu::get().unwrap().passthrough(&s);
     assert_eq!(back, s);
 }
 
@@ -197,9 +197,9 @@ fn gpu_04_deterministic_across_processes() {
 #[test]
 fn ev_13_frame_count_in_key() {
     let mk = |frames: i64| {
-        load(&json!({ "slopc": 1, "settings": { "frames": frames }, "nodes": { "c": { "type": "counter", "inputs": { "mode": "animation_progress" } } } }).to_string())
+        load(&json!({ "picle": 1, "settings": { "frames": frames }, "nodes": { "c": { "type": "counter", "inputs": { "mode": "animation_progress" } } } }).to_string())
     };
     let mut ev = Evaluator::new();
-    assert_eq!(ev.eval(&mk(10), ".".as_ref(), "c", 9).unwrap(), slopc::types::Value::Number(1.0));
-    assert_eq!(ev.eval(&mk(19), ".".as_ref(), "c", 9).unwrap(), slopc::types::Value::Number(0.5));
+    assert_eq!(ev.eval(&mk(10), ".".as_ref(), "c", 9).unwrap(), picle::types::Value::Number(1.0));
+    assert_eq!(ev.eval(&mk(19), ".".as_ref(), "c", 9).unwrap(), picle::types::Value::Number(0.5));
 }

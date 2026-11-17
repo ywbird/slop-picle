@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..", "..");
-const bin = join(root, "target", "debug", "slopc");
-const dir = mkdtempSync(join(tmpdir(), "slopc-play-"));
+const bin = join(root, "target", "debug", "picle");
+const dir = mkdtempSync(join(tmpdir(), "picle-play-"));
 const FRAMES = 24;
 
 let server: ReturnType<typeof Bun.spawn>;
@@ -16,9 +16,9 @@ let page: Page;
 
 beforeAll(async () => {
   writeFileSync(
-    join(dir, "p.slopc.json"),
+    join(dir, "p.picle.json"),
     JSON.stringify({
-      slopc: 1,
+      picle: 1,
       settings: { width: 32, height: 32, frames: FRAMES, fps: 12 },
       nodes: {
         g: { type: "gradient", pos: [0, 0], inputs: { type: "radial", angle: { anim: [{ time: 0, value: 0 }, { time: FRAMES, value: 360 }] },
@@ -36,11 +36,11 @@ beforeAll(async () => {
   const reader = server.stdout.getReader();
   let text = "";
   while (!text.includes("\n")) text += new TextDecoder().decode((await reader.read()).value);
-  const url = text.trim().replace("slopc serve: ", "");
+  const url = text.trim().replace("picle serve: ", "");
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/sbin/chromium" });
   page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.goto(url);
-  await page.goto(url.split("/?")[0] + "/#/edit/p.slopc.json");
+  await page.goto(url.split("/?")[0] + "/#/edit/p.picle.json");
   await page.waitForSelector(".timeline");
 }, 30000);
 
@@ -52,7 +52,7 @@ afterAll(async () => {
 test("WEB-27 playback shows the frame the timeline names, without skips, and loops back to the same picture", async () => {
   const keys: string[] = await page.evaluate(async (n) => {
     const out: string[] = [];
-    for (let f = 0; f < n; f++) out.push((await (await fetch(`/api/project?path=p.slopc.json&frame=${f}`)).json()).keys.out);
+    for (let f = 0; f < n; f++) out.push((await (await fetch(`/api/project?path=p.picle.json&frame=${f}`)).json()).keys.out);
     return out;
   }, FRAMES);
   expect(new Set(keys).size).toBe(FRAMES);

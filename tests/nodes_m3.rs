@@ -2,10 +2,10 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::eval::Evaluator;
-use slopc::project;
-use slopc::surface::Surface;
-use slopc::types::Value;
+use picle::eval::Evaluator;
+use picle::project;
+use picle::surface::Surface;
+use picle::types::Value;
 
 const CLEAR: [u8; 4] = [0, 0, 0, 0];
 const WHITE: [u8; 4] = [255, 255, 255, 255];
@@ -35,7 +35,7 @@ fn grey(v: u8) -> [u8; 4] {
 }
 
 fn value(nodes: Json, target: &str, frames: i64, frame: i64) -> Result<Value, project::Error> {
-    let text = json!({ "slopc": 1, "settings": { "width": 2, "height": 2, "frames": frames }, "nodes": nodes }).to_string();
+    let text = json!({ "picle": 1, "settings": { "width": 2, "height": 2, "frames": frames }, "nodes": nodes }).to_string();
     let p = project::load_str(&text).project.unwrap();
     Evaluator::new().eval(&p, ".".as_ref(), target, frame)
 }
@@ -810,7 +810,7 @@ fn n_value_06_counter() {
 
 #[test]
 fn n_value_07_counter_frame_in_key() {
-    let text = json!({ "slopc": 1, "settings": { "frames": 4 }, "nodes": { "n": { "type": "counter" } } }).to_string();
+    let text = json!({ "picle": 1, "settings": { "frames": 4 }, "nodes": { "n": { "type": "counter" } } }).to_string();
     let p = project::load_str(&text).project.unwrap();
     let mut ev = Evaluator::new();
     assert_eq!(ev.eval(&p, ".".as_ref(), "n", 0).unwrap(), Value::Number(1.0));
@@ -822,7 +822,7 @@ fn n_value_07_counter_frame_in_key() {
 
 #[test]
 fn ty_09_int_fits_number() {
-    use slopc::types::{Type, fits};
+    use picle::types::{Type, fits};
     assert!(fits(Type::Int, Type::Number));
     assert!(!fits(Type::Number, Type::Int));
 }

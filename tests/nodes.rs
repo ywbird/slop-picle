@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use serde_json::{Value as Json, json};
-use slopc::surface::Surface;
+use picle::surface::Surface;
 
 // ---------- solid ----------
 
@@ -120,7 +120,7 @@ fn n_noise_07_position_based() {
 
 // ---------- transform ----------
 
-fn transform(src: &Surface, inputs: Json) -> Result<Surface, slopc::project::Error> {
+fn transform(src: &Surface, inputs: Json) -> Result<Surface, picle::project::Error> {
     let mut inputs = inputs;
     inputs["surface_in"] = json!({ "ref": "src" });
     eval_on(src, json!({ "t": { "type": "transform", "inputs": inputs } }), "t")
@@ -274,7 +274,7 @@ fn n_blend_03_transparent_foreground() {
 
 #[test]
 fn n_blend_04_both_transparent() {
-    for &mode in slopc::nodes::BLEND_MODES {
+    for &mode in picle::nodes::BLEND_MODES {
         let s = blend(&flat(2, 2, CLEAR), Some(&flat(2, 2, CLEAR)), json!({ "blend_mode": mode }));
         let want = match mode {
             "difference" => [0, 0, 0, 255],
@@ -399,7 +399,7 @@ fn write_raw_png(path: &std::path::Path, w: u32, h: u32, color: png::ColorType, 
     enc.write_header().unwrap().write_image_data(data).unwrap();
 }
 
-fn read_image(dir: &std::path::Path, name: &str) -> Result<Surface, slopc::project::Error> {
+fn read_image(dir: &std::path::Path, name: &str) -> Result<Surface, picle::project::Error> {
     eval_in(dir, 4, 4, json!({ "img": { "type": "image", "inputs": { "path": name } } }), "img")
 }
 
@@ -428,7 +428,7 @@ fn n_image_03_relative_to_project_file() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir(dir.path().join("assets")).unwrap();
     write_png(&dir.path().join("assets"), "a.png", &flat(1, 1, [1, 2, 3, 255]));
-    let path = dir.path().join("p.slopc.json");
+    let path = dir.path().join("p.picle.json");
     std::fs::write(&path, project_json(1, 1, json!({ "img": { "type": "image", "inputs": { "path": "assets/a.png" } } }))).unwrap();
     let out = dir.path().join("o.png");
     let st = std::process::Command::new(bin())
