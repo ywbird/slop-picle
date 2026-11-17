@@ -19,3 +19,4 @@ wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan",
 [dev-dependencies]
 jsonschema = "0.61.2"
 tempfile = "3.27.0"
+ureq = { version = "3.5.2", features = ["json"] }
