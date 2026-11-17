@@ -20,7 +20,7 @@ A failure sets `isError: true` and the JSON is `{ "ok": false, "errors": [...] }
 | Tool | Arguments | Result |
 |---|---|---|
 | `list_projects` | — | `{ "projects": ["a.slopc.json", "sub/b.slopc.json"] }`, sorted; skips hidden directories, `node_modules`, `target` |
-| `create_project` | `path`, optional `width`, `height` (default 32) | `{ "ok": true, "path": ... }`; fails with `exists` if the file exists |
+| `create_project` | `path`, optional `width`, `height` (default 32) | `{ "ok": true, "path": ... }`; fails with `exists` if the file exists; creates missing parent directories inside the root |
 | `read_project` | `path` | `{ "project": <file JSON>, "errors": [...] }` |
 | `edit_project` | `path`, `ops` (array) | the batch result from [ops.md](ops.md) |
 | `list_node_types` | optional `type` | without: `[{type, category, description}]`; with: the catalog entry |
