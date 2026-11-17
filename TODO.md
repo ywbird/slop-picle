@@ -156,6 +156,7 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] One area at a time: spec, tests, code, commit, then report before the next
   - [x] Area 1, animation: keyframed inputs (upstream format and easing), `set_key`/`remove_key`, wiggler, fn_ease, fn_smoothstep, fn_math, revert, anim_speed, rate_remap, delay, anim_loop, frame-aware API, timeline and key buttons (commit 4d30ad6, commit 2f4677a)
   - [ ] Area 2, export
+    - [x] Following upstream Node_Export and Node_Render_Sprite_Sheet, within the earlier decision that the project has no Export node (the export command picks the path): `slopc export` / MCP `export` / server `POST /api/export` write PNG (single or `%f` sequence), GIF and APNG into the project root; the web UI has an export dialog with download links; `render_sprite_sheet` is a node. WebP/MP4/WebM/JPG are left out (no encoder without ffmpeg)
   - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
