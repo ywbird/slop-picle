@@ -74,9 +74,11 @@ test("WEB-25 timeline steps and plays", async () => {
   for (let i = 0; i < 30 && (await thumbRed("a")) !== 60; i++) await Bun.sleep(100);
   expect(await thumbRed("a")).toBe(60);
   await page.locator('.timeline button[aria-label="play"]').click();
-  await Bun.sleep(700);
+  // 4 frames at 4 fps loop every second, so check the frames visited rather than where it stops.
+  const visited = new Set<string>();
+  for (let t0 = Date.now(); Date.now() - t0 < 1200; await Bun.sleep(20)) visited.add(await frameText());
   await page.locator('.timeline button[aria-label="pause"]').click();
-  expect(await frameText()).not.toBe("1");
+  expect(visited.size).toBe(4);
 }, 30000);
 
 test("WEB-26 key buttons set and show keys", async () => {
