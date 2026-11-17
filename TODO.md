@@ -132,7 +132,7 @@ Done when an agent on another machine connects to `/mcp` with the token and rend
 
 ## Later
 
-Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and sprite-sheet export, groups, loops and feedback, array inputs (batch), custom WGSL node, particles, text and canvas (paint) nodes, simulations, 3D.
+Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet export, groups, loops and feedback, array inputs (batch), custom WGSL node, particles, text and canvas (paint) nodes, simulations, 3D.
 
 ## Risks
 
@@ -146,9 +146,9 @@ Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and spr
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-- [ ] webui: 노드 선택 delete 키로 삭제
-- [ ] webui: 복수 선택 노드 일괄 delete 키 삭제
-- [ ] webui: undo 기능 + 단축키
+- [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
+- [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
+- [x] webui: undo 기능 + 단축키 (commit 8aed5ab)
   - [x] Scope: this tab's own edits; undo reverts only what that edit touched, so MCP/CLI edits made since are kept; a conflicting undo is refused with a message; history is lost on reload
   - [x] Redo included. Shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo; undo/redo buttons in the top bar
 
