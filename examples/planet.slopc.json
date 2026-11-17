@@ -1,0 +1,196 @@
+{
+  "slopc": 1,
+  "settings": {
+    "width": 64,
+    "height": 64,
+    "frames": 1,
+    "fps": 12
+  },
+  "nodes": {
+    "space": {
+      "type": "solid",
+      "inputs": {
+        "color": "#0b0d17"
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    "stars_noise": {
+      "type": "noise",
+      "inputs": {
+        "seed": 3
+      },
+      "pos": [
+        0,
+        220
+      ]
+    },
+    "stars": {
+      "type": "threshold",
+      "label": "keep only the brightest specks",
+      "inputs": {
+        "surface_in": {
+          "ref": "stars_noise"
+        },
+        "brightness": true,
+        "brightness_threshold": 0.97
+      },
+      "pos": [
+        260,
+        220
+      ]
+    },
+    "sky": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "space"
+        },
+        "foreground": {
+          "ref": "stars"
+        },
+        "blend_mode": "add",
+        "opacity": 0.8
+      },
+      "pos": [
+        520,
+        0
+      ]
+    },
+    "light": {
+      "type": "gradient",
+      "label": "sun from the top-left",
+      "inputs": {
+        "dimension": [
+          40,
+          40
+        ],
+        "type": "circular",
+        "center": [
+          0.3,
+          0.3
+        ],
+        "radius": 0.75,
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#a7f070"
+            },
+            {
+              "time": 0.45,
+              "color": "#38b764"
+            },
+            {
+              "time": 0.8,
+              "color": "#257179"
+            },
+            {
+              "time": 1,
+              "color": "#29366f"
+            }
+          ]
+        }
+      },
+      "pos": [
+        0,
+        460
+      ]
+    },
+    "shade": {
+      "type": "dither",
+      "inputs": {
+        "surface_in": {
+          "ref": "light"
+        },
+        "pattern": "bayer_4x4",
+        "palette": [
+          "#a7f070",
+          "#38b764",
+          "#257179",
+          "#29366f"
+        ]
+      },
+      "pos": [
+        260,
+        460
+      ]
+    },
+    "disc": {
+      "type": "shape",
+      "inputs": {
+        "dimension": [
+          40,
+          40
+        ],
+        "shape": "ellipse"
+      },
+      "pos": [
+        260,
+        720
+      ]
+    },
+    "planet": {
+      "type": "blend",
+      "label": "multiply cuts the dither to the disc",
+      "inputs": {
+        "background": {
+          "ref": "disc"
+        },
+        "foreground": {
+          "ref": "shade"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        520,
+        560
+      ]
+    },
+    "rim": {
+      "type": "outline",
+      "inputs": {
+        "surface_in": {
+          "ref": "planet"
+        },
+        "width": 1,
+        "profile": "square",
+        "color": "#1a1c2c"
+      },
+      "pos": [
+        780,
+        560
+      ]
+    },
+    "scene": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "sky"
+        },
+        "foreground": {
+          "ref": "rim"
+        }
+      },
+      "pos": [
+        1040,
+        0
+      ]
+    },
+    "out": {
+      "type": "output",
+      "inputs": {
+        "surface_in": {
+          "ref": "scene"
+        }
+      },
+      "pos": [
+        1300,
+        0
+      ]
+    }
+  }
+}
