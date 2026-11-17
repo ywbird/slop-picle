@@ -96,6 +96,6 @@ Shape (also the output of `slopc nodes --json`):
 | TY-14 | `palette` given `["#000000", "#ffffff"]` / `[]` / `["red"]` / 257 colours | valid / `out_of_range` / `type_mismatch` / `out_of_range` |
 | TY-15 | `gradient` given `{"type":"rgb","keys":[{"time":0,"color":"#000000"}]}` | valid |
 | TY-16 | `gradient` with `type` `"lab"`, a key `time` 2, no keys, a key missing `color` | `invalid_enum`, `out_of_range`, `out_of_range`, `type_mismatch` |
-| TY-17 | `colorize` of a #808080 `solid` (`t` = 128/255) with keys red at 0 and blue at 1: `rgb`, `constant`, `hsv`, `hsv_inverted`, `oklab`; red to black, `cmyk` | (127,0,128), (255,0,0), (254,0,255), (0,255,2), (139,84,161); (127,64,64); each ± 2 |
+| TY-19 | `colorize` of a #808080 `solid` (`t` = 128/255) with keys red at 0 and blue at 1: `rgb`, `constant`, `hsv`, `hsv_inverted`, `oklab`; red to black, `cmyk` | (127,0,128), (255,0,0), (254,0,255), (0,255,2), (139,84,161); (127,64,64); each ± 2 |
 | TY-18 | `padding` given `[1, 0, 1, 0]` / `[1, 2]` / `[-1, 0, 0, 0]` | valid / `type_mismatch` / `out_of_range` |
 | TY-17 | a `color` output (node `color`) into a `solid.color` input; a `number` output into `blend.opacity` | valid |
