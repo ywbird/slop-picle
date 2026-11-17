@@ -166,9 +166,10 @@ User feedback as a checklist. Points that need a decision are indented under the
     - [x] 3.1 all 25 upstream blend modes, shared by every node with a blend mode (commit 9dcbeb4)
     - [x] 3.2 blend node inputs: mask, swap, invert mask, mask feather, output dimension, constant dimension, fill mode; horizontal/vertical align left out (upstream neither shows nor uses them) (commit 504084b)
     - [x] 3.3 gradient blends: `hsv`, `hsv_inverted`, `oklab`, `cmyk` beside `rgb` and `constant` (upstream editor's six; its hidden `srgb` left out) (commit f704b49)
-    - [ ] 3.4 curve and any types; anim_curve, stagger, delay_value; curve inputs
+    - [x] 3.4 curve and any types; anim_curve, stagger (one surface until arrays exist), delay_value; curves edited as JSON in the web UI (commit be6cc4a)
+      - [x] Deviation: delay_value evaluates the earlier frame directly instead of upstream's values recorded while playing
     - [ ] 3.5 shared modifiers: mask, mix and channels on filters, UV map on generators
-    - [ ] 3.6 the remaining inputs, node by node
+    - [ ] 3.6 the remaining inputs, node by node (curve inputs of gradient and blur come with their nodes)
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
 - [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
