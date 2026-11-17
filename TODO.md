@@ -149,6 +149,9 @@ User feedback as a checklist. Points that need a decision are indented under the
 - [ ] 아직 원본 프로젝트에서 구현하지 않은 부분을 구현하자.
   - [x] Areas, in order: animation (keyframes on inputs, Animation nodes, timeline and playback), export (PNG sequence, GIF, sprite sheet), then completing the 33 existing nodes (left-out inputs, all blend modes, gradient blends)
   - [x] One area at a time: spec, tests, code, commit, then report before the next
+  - [x] Area 1, animation: keyframed inputs (upstream format and easing), `set_key`/`remove_key`, wiggler, fn_ease, fn_smoothstep, fn_math, revert, anim_speed, rate_remap, delay, anim_loop, frame-aware API, timeline and key buttons (commit 4d30ad6, commit 2f4677a)
+  - [ ] Area 2, export
+  - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
 - [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
@@ -162,7 +165,7 @@ User feedback as a checklist. Points that need a decision are indented under the
 - [x] webui: 배경을 그리드 라던가 점 그리드 라던가 뭔가 추가 (commit e95a3dd)
   - [x] Following upstream (Pixel Composer's graph): a square line grid with a stronger major line every 5 cells
 - [x] webui: 드래그로 노드 그룹 선택 / 이동 (commit e95a3dd)
-  - [x] Following upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected), middle-drag pans (also Space + drag, scroll zooms); dragging any selected node moves the whole group, saved as one batch
+  - [x] Following upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected), middle-drag pans (scroll zooms; Space became play/pause with the animation timeline, as upstream); dragging any selected node moves the whole group, saved as one batch
 
 - [x] webui: 노드 삭제가 없는거 같은데 + 우클릭 메뉴 만들어줘. 거기에 삭제 옵션 추가 하는 방식? (commit b4be98f)
   - [x] Node menu: delete, duplicate. Empty canvas menu: add node (search). Edge menu: disconnect
