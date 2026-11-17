@@ -184,6 +184,53 @@ fn apply_one(p: &mut Project, op: &Op, created: &mut Vec<String>) -> Result<(), 
                 }
             }
         }
+        "set_key" | "remove_key" => {
+            let set = op.str("op")? == "set_key";
+            op.allow(if set { &["id", "input", "time", "value", "ease_in", "ease_out", "ease_in_type", "ease_out_type"] } else { &["id", "input", "time"] })?;
+            let input = op.str("input")?.to_string();
+            let time = op.obj.get("time").and_then(Json::as_i64).ok_or_else(|| op.bad("field 'time' must be an integer frame"))?;
+            let (id, node) = op.node(p)?;
+            if catalog::get(&node.ty).is_some_and(|d| d.input(&input).is_none()) {
+                let mut e = op_err(i, "unknown_input", Some(&id), format!("{} has no input '{input}'", node.ty));
+                e.input = Some(input);
+                return Err(e);
+            }
+            let cur = node.inputs.get(&input).cloned();
+            if cur.as_ref().is_some_and(|v| ref_target(v).is_some()) {
+                return Err(op.bad(format!("input '{input}' is connected; disconnect it before keying")));
+            }
+            let mut keys: Vec<Json> = match &cur {
+                Some(v) if crate::anim::is_anim(v) => v["anim"].as_array().cloned().unwrap_or_default(),
+                _ => vec![],
+            };
+            let same = |k: &Json| k.get("time").and_then(Json::as_i64) == Some(time);
+            if set {
+                let mut key = serde_json::Map::new();
+                key.insert("time".into(), json!(time));
+                key.insert("value".into(), op.obj.get("value").ok_or_else(|| op.bad("field 'value' is required"))?.clone());
+                for f in ["ease_in", "ease_out", "ease_in_type", "ease_out_type"] {
+                    if let Some(v) = op.obj.get(f) {
+                        key.insert(f.into(), v.clone());
+                    }
+                }
+                keys.retain(|k| !same(k));
+                keys.push(Json::Object(key));
+                keys.sort_by_key(|k| k.get("time").and_then(Json::as_i64).unwrap_or(0));
+            } else {
+                let Some(pos) = keys.iter().position(same) else { return Err(op.bad(format!("input '{input}' has no key at frame {time}"))) };
+                let removed = keys.remove(pos);
+                if keys.is_empty() {
+                    node.inputs.insert(input, removed["value"].clone());
+                    return Ok(());
+                }
+            }
+            let mut anim = match cur {
+                Some(Json::Object(o)) if o.contains_key("anim") => o,
+                _ => serde_json::Map::new(),
+            };
+            anim.insert("anim".into(), Json::Array(keys));
+            node.inputs.insert(input, Json::Object(anim));
+        }
         other => return Err(op.bad(format!("unknown op '{other}'"))),
     }
     Ok(())

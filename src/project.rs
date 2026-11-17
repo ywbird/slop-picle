@@ -290,6 +290,11 @@ pub fn validate(p: &Project) -> Vec<Error> {
                         }
                     }
                 },
+                Raw::Literal(j) if crate::anim::is_anim(j) => {
+                    if let Err((code, m)) = crate::anim::parse(idef, j) {
+                        errors.push(Error::at(code, id, Some(name), m));
+                    }
+                }
                 Raw::Literal(j) => {
                     if let Err((code, m)) = types::check_literal(idef, j) {
                         errors.push(Error::at(code, id, Some(name), m));
@@ -341,6 +346,8 @@ fn cycle_nodes(p: &Project) -> Vec<String> {
 pub enum GInput {
     Value(Value),
     Ref { node: String, output: String },
+    /// A keyframed input.
+    Anim(crate::anim::Anim),
     /// A required input that is not set.
     Missing,
 }
@@ -360,6 +367,17 @@ impl Graph {
         let n = self.nodes.get(node)?;
         let (i, _) = n.def.input(input)?;
         n.inputs.get(i)
+    }
+
+    /// A literal or animated input's value at a frame (None for refs and missing inputs).
+    pub fn input_at(&self, node: &str, input: &str, frame: i64, frames: i64) -> Option<Value> {
+        let n = self.nodes.get(node)?;
+        let (i, def) = n.def.input(input)?;
+        match &n.inputs[i] {
+            GInput::Value(v) => Some(v.clone()),
+            GInput::Anim(a) => Some(a.value_at(frame, frames, def.ty)),
+            _ => None,
+        }
     }
 }
 
@@ -385,6 +403,7 @@ pub fn graph(p: &Project) -> Result<Graph, Vec<Error>> {
                         let sdef = catalog::get(&p.nodes[src].ty).unwrap();
                         GInput::Ref { node: src.into(), output: out.unwrap_or(sdef.outputs[0].name).into() }
                     }
+                    Raw::Literal(j) if crate::anim::is_anim(j) => GInput::Anim(crate::anim::parse(idef, j).unwrap()),
                     Raw::Literal(j) => GInput::Value(types::check_literal(idef, j).unwrap()),
                     Raw::BadRef(_) => unreachable!("validated"),
                 },

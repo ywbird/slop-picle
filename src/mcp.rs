@@ -19,7 +19,8 @@ const INSTRUCTIONS: &str = "slopc builds pixel art from a node graph stored in *
 Workflow: list_node_types (then list_node_types {type} for inputs) -> create_project -> edit_project with ops -> render to look at the result.
 Ops: add_node {type, id?, inputs?}, set_input {id, input, value}, remove_node, rename_node, move_node, unset_input, set_label, set_settings.
 Connect nodes with an input value {\"ref\": \"node\"} or {\"ref\": \"node.output\"}. An `output` node marks what render shows.
-`missing_input` warnings are fine while building; other errors reject the whole batch.";
+`missing_input` warnings are fine while building; other errors reject the whole batch.
+Animation: settings.frames/fps; any non-surface input can hold {\"anim\": [{\"time\": frame, \"value\": v, \"ease_in_type\"?: \"linear|bezier|cut\"}], \"on_end\"?: \"hold|loop|ping|wrap\"}, or edit keys with set_key {id, input, time, value} / remove_key {id, input, time}. Animation nodes (wiggler, fn_ease, revert, anim_speed, delay, anim_loop, ...) are in list_node_types. render takes frame.";
 
 #[derive(Clone)]
 pub struct Slopc {

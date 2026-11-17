@@ -32,6 +32,21 @@ fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
 }
 ";
 
+/// CPU copies of the shader hash (spec/nodes.md#shared-definitions).
+pub fn hash(v: u32) -> u32 {
+    let state = v.wrapping_mul(747796405).wrapping_add(2891336453);
+    let word = ((state >> ((state >> 28) + 4)) ^ state).wrapping_mul(277803737);
+    (word >> 22) ^ word
+}
+
+pub fn hash2(x: i64, y: i64, seed: i64) -> u32 {
+    hash((x as u32) ^ hash((y as u32) ^ hash(seed as u32)))
+}
+
+pub fn unit(h: u32) -> f64 {
+    (h >> 8) as f64 / 16777216.0
+}
+
 /// WGSL keywords and reserved words that may collide with input names; such fields get a trailing `_`.
 const RESERVED: &[&str] = &["loop", "type", "override", "default", "const", "enable", "alias", "mod", "filter", "sample", "from", "mode"];
 

@@ -131,6 +131,12 @@ struct PathQuery {
     path: String,
 }
 
+#[derive(Deserialize)]
+struct FrameQuery {
+    path: String,
+    frame: Option<i64>,
+}
+
 fn existing(st: &AppState, rel: &str) -> Result<PathBuf, ApiError> {
     let path = sandbox::project(&st.root, rel)?;
     if !path.is_file() {
@@ -164,17 +170,37 @@ async fn create_h(State(st): State<AppState>, body: Bytes) -> Result<Response, A
     Ok((StatusCode::CREATED, Json(json!({ "ok": true, "path": b.path }))).into_response())
 }
 
-fn keys(path: &Path, p: &project::Project) -> HashMap<String, String> {
-    Evaluator::keys(p, path.parent().unwrap(), 0)
+fn keys(path: &Path, p: &project::Project, frame: i64) -> HashMap<String, String> {
+    Evaluator::keys(p, path.parent().unwrap(), frame)
 }
 
-async fn project_h(State(st): State<AppState>, Query(q): Query<PathQuery>) -> Result<Json<JsonValue>, ApiError> {
+/// Values of animated inputs at `frame`: `{ node: { input: value } }`.
+fn animated(p: &project::Project, frame: i64) -> JsonValue {
+    let Ok(g) = project::graph(p) else { return json!({}) };
+    let mut out = serde_json::Map::new();
+    for (id, n) in &g.nodes {
+        let mut m = serde_json::Map::new();
+        for (gi, idef) in n.inputs.iter().zip(n.def.inputs) {
+            if let project::GInput::Anim(a) = gi {
+                m.insert(idef.name.into(), a.value_at(frame, p.settings.frames, idef.ty).to_json(Some(idef)));
+            }
+        }
+        if !m.is_empty() {
+            out.insert(id.clone(), JsonValue::Object(m));
+        }
+    }
+    JsonValue::Object(out)
+}
+
+async fn project_h(State(st): State<AppState>, Query(q): Query<FrameQuery>) -> Result<Json<JsonValue>, ApiError> {
     let path = existing(&st, &q.path)?;
+    let frame = q.frame.unwrap_or(0);
     let text = std::fs::read_to_string(&path).map_err(io_err)?;
     let l = project::load_str(&text);
     let file: JsonValue = serde_json::from_str(&text).unwrap_or(JsonValue::Null);
-    let k = l.project.as_ref().map(|p| keys(&path, p)).unwrap_or_default();
-    Ok(Json(json!({ "project": file, "errors": l.errors, "keys": k })))
+    let k = l.project.as_ref().map(|p| keys(&path, p, frame)).unwrap_or_default();
+    let a = l.project.as_ref().map(|p| animated(p, frame)).unwrap_or(json!({}));
+    Ok(Json(json!({ "project": file, "errors": l.errors, "keys": k, "animated": a })))
 }
 
 async fn ops_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: Bytes) -> Result<Json<JsonValue>, ApiError> {
@@ -247,15 +273,16 @@ async fn upload_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: 
     Ok((StatusCode::CREATED, Json(json!({ "ok": true, "path": q.path }))).into_response())
 }
 
-fn keys_event(path: &Path) -> Event {
-    let k = project::load(path).ok().and_then(|l| l.project).map(|p| keys(path, &p)).unwrap_or_default();
+fn keys_event(path: &Path, frame: i64) -> Event {
+    let k = project::load(path).ok().and_then(|l| l.project).map(|p| keys(path, &p, frame)).unwrap_or_default();
     Event::default().event("changed").data(json!({ "keys": k }).to_string())
 }
 
-async fn events_h(State(st): State<AppState>, Query(q): Query<PathQuery>) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, ApiError> {
+async fn events_h(State(st): State<AppState>, Query(q): Query<FrameQuery>) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, ApiError> {
     let path = existing(&st, &q.path)?;
+    let frame = q.frame.unwrap_or(0);
     let rx = st.changes.subscribe();
-    let s = stream::unfold((true, rx, path), |(first, mut rx, path)| async move {
+    let s = stream::unfold((true, rx, path), move |(first, mut rx, path)| async move {
         if !first {
             loop {
                 match rx.recv().await {
@@ -269,7 +296,7 @@ async fn events_h(State(st): State<AppState>, Query(q): Query<PathQuery>) -> Res
             tokio::time::sleep(Duration::from_millis(50)).await;
             while rx.try_recv().is_ok() {}
         }
-        let ev = keys_event(&path);
+        let ev = keys_event(&path, frame);
         Some((Ok(ev), (false, rx, path)))
     });
     Ok(Sse::new(s).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)).text("ping")))

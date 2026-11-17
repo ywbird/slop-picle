@@ -7,6 +7,7 @@ use crate::surface::Surface;
 use crate::types::{Type as T, Value};
 use std::sync::Arc;
 
+mod anim;
 mod color;
 mod filter;
 mod generate;
@@ -206,18 +207,35 @@ fn output(_: &mut Ctx, v: &[Value]) -> R {
 }
 
 const fn node(ty: &'static str, category: &'static str, description: &'static str, inputs: &'static [I], run: crate::catalog::RunFn) -> NodeDef {
-    NodeDef { ty, category, description, inputs, outputs: SURFACE_OUT, run, reads_frame: false }
+    NodeDef { ty, category, description, inputs, outputs: SURFACE_OUT, run, reads_frame: false, remap: None }
 }
 
 const fn value_node(ty: &'static str, description: &'static str, inputs: &'static [I], outputs: &'static [O], run: crate::catalog::RunFn) -> NodeDef {
-    NodeDef { ty, category: "value", description, inputs, outputs, run, reads_frame: false }
+    NodeDef { ty, category: "value", description, inputs, outputs, run, reads_frame: false, remap: None }
+}
+
+const fn remap_node(ty: &'static str, description: &'static str, inputs: &'static [I], output: &'static str, remap: crate::catalog::RemapFn) -> NodeDef {
+    NodeDef {
+        ty,
+        category: "animation",
+        description,
+        inputs,
+        outputs: match output.as_bytes() {
+            b"output" => &[O { name: "output", ty: T::Surface }],
+            b"surface_out" => SURFACE_OUT,
+            _ => &[O { name: "surface", ty: T::Surface }],
+        },
+        run: anim::no_run,
+        reads_frame: true,
+        remap: Some(remap),
+    }
 }
 
 pub static ALL: &[NodeDef] = &[
-    NodeDef { ty: "image", category: "io", description: "Read a PNG file.", inputs: IMAGE_IN, outputs: SURFACE_OUT, run: image, reads_frame: false },
-    NodeDef { ty: "output", category: "io", description: "Mark the image `slopc render` writes.", inputs: OUTPUT_IN, outputs: SURFACE_OUT, run: output, reads_frame: false },
-    NodeDef { ty: "solid", category: "generate", description: "Fill a surface with one colour.", inputs: SOLID_IN, outputs: SURFACE_OUT, run: solid, reads_frame: false },
-    NodeDef { ty: "noise", category: "generate", description: "White noise, one random value per pixel.", inputs: NOISE_IN, outputs: SURFACE_OUT, run: noise, reads_frame: false },
+    NodeDef { ty: "image", category: "io", description: "Read a PNG file.", inputs: IMAGE_IN, outputs: SURFACE_OUT, run: image, reads_frame: false, remap: None },
+    NodeDef { ty: "output", category: "io", description: "Mark the image `slopc render` writes.", inputs: OUTPUT_IN, outputs: SURFACE_OUT, run: output, reads_frame: false, remap: None },
+    NodeDef { ty: "solid", category: "generate", description: "Fill a surface with one colour.", inputs: SOLID_IN, outputs: SURFACE_OUT, run: solid, reads_frame: false, remap: None },
+    NodeDef { ty: "noise", category: "generate", description: "White noise, one random value per pixel.", inputs: NOISE_IN, outputs: SURFACE_OUT, run: noise, reads_frame: false, remap: None },
     NodeDef {
         ty: "transform",
         category: "transform",
@@ -226,8 +244,9 @@ pub static ALL: &[NodeDef] = &[
         outputs: SURFACE_OUT,
         run: transform,
         reads_frame: false,
+        remap: None,
     },
-    NodeDef { ty: "blend", category: "compose", description: "Draw a foreground over a background with a blend mode.", inputs: BLEND_IN, outputs: SURFACE_OUT, run: blend, reads_frame: false },
+    NodeDef { ty: "blend", category: "compose", description: "Draw a foreground over a background with a blend mode.", inputs: BLEND_IN, outputs: SURFACE_OUT, run: blend, reads_frame: false, remap: None },
     node("gradient", "generate", "Draw a linear, circular or radial gradient.", generate::GRADIENT_IN, generate::gradient),
     NodeDef { outputs: &[O { name: "colored", ty: T::Surface }], ..node("shape", "generate", "Draw a rectangle or ellipse.", generate::SHAPE_IN, generate::shape) },
     node("cellular", "generate", "Cellular (Worley) noise: distance to the nearest feature point.", generate::CELLULAR_IN, generate::cellular),
@@ -254,5 +273,14 @@ pub static ALL: &[NodeDef] = &[
     value_node("color", "A colour.", value::COLOR_IN, &[O { name: "color", ty: T::Color }], value::color),
     value_node("palette", "A list of colours.", value::PALETTE_IN, &[O { name: "palette", ty: T::Palette }], value::palette),
     value_node("math", "Arithmetic on two numbers.", value::MATH_IN, &[O { name: "result", ty: T::Number }], value::math),
+    NodeDef { reads_frame: true, category: "animation", ..value_node("wiggler", "Smooth random value over time.", anim::WIGGLER_IN, &[O { name: "output", ty: T::Number }], anim::wiggler) },
+    NodeDef { reads_frame: true, category: "animation", ..value_node("fn_ease", "Ease in and out over the animation.", anim::FN_EASE_IN, &[O { name: "output", ty: T::Number }], anim::fn_ease) },
+    NodeDef { category: "animation", ..value_node("fn_smoothstep", "Smoothstep curve of a value.", anim::FN_SMOOTHSTEP_IN, &[O { name: "output", ty: T::Number }], anim::fn_smoothstep) },
+    NodeDef { category: "animation", ..value_node("fn_math", "Add, subtract or multiply two values.", anim::FN_MATH_IN, &[O { name: "output", ty: T::Number }], anim::fn_math) },
+    remap_node("revert", "Play an animation backwards.", anim::REVERT_IN, "output", anim::revert_frame),
+    remap_node("anim_speed", "Change an animation's playback speed.", anim::ANIM_SPEED_IN, "surface_out", anim::anim_speed_frame),
+    remap_node("rate_remap", "Resample an animation to a lower frame rate.", anim::RATE_REMAP_IN, "surface", anim::rate_remap_frame),
+    remap_node("delay", "Delay an animation by some frames.", anim::DELAY_IN, "surface", anim::delay_frame),
+    remap_node("anim_loop", "Loop part of an animation.", anim::ANIM_LOOP_IN, "surface", anim::anim_loop_frame),
     NodeDef { reads_frame: true, ..value_node("counter", "Frame index or animation progress.", value::COUNTER_IN, &[O { name: "value", ty: T::Number }], value::counter) },
 ];

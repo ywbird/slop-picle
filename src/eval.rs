@@ -85,6 +85,7 @@ struct Run<'a> {
     dir: &'a Path,
     frame: i64,
     frames: i64,
+    fps: f64,
     size: [u32; 2],
     keys: HashMap<String, u64>,
     outputs: HashMap<String, Arc<Vec<Value>>>,
@@ -141,7 +142,7 @@ impl Evaluator {
         if frame < 0 || frame >= p.settings.frames {
             return Err(Error::new("frame_out_of_range", format!("frame {frame} is outside 0..{}", p.settings.frames)));
         }
-        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
+        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, fps: p.settings.fps(), size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
         let outs = self.node(&mut run, id)?;
         Ok(outs[oi].clone())
     }
@@ -149,7 +150,7 @@ impl Evaluator {
     /// Cache keys of every node that can be keyed (for thumbnails); nodes with missing inputs are absent.
     pub fn keys(p: &Project, dir: &Path, frame: i64) -> HashMap<String, String> {
         let Ok(graph) = project::graph(p) else { return HashMap::new() };
-        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
+        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, fps: p.settings.fps(), size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
         let mut out = HashMap::new();
         for id in graph.nodes.keys() {
             if let Ok(k) = key(&mut run, id) {
@@ -173,16 +174,42 @@ impl Evaluator {
         }
         let gnode = &run.graph.nodes[id];
         let mut values = Vec::with_capacity(gnode.inputs.len());
+        let mut remap_source = None;
         for (gi, idef) in gnode.inputs.iter().zip(gnode.def.inputs) {
             values.push(match gi {
                 GInput::Value(v) => v.clone(),
+                GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
                 GInput::Missing => unreachable!("checked by key"),
+                // Time-remap nodes read their surface at another frame, below.
+                GInput::Ref { node, output } if gnode.def.remap.is_some() && idef.ty == Type::Surface => {
+                    remap_source = Some((node.clone(), output.clone()));
+                    Value::None
+                }
                 GInput::Ref { node, output } => {
                     let src = self.node(run, node)?;
                     let (oi, _) = run.graph.nodes[node.as_str()].def.output(output).unwrap();
                     coerce(&src[oi], idef)
                 }
             });
+        }
+        if let (Some(remap), Some((src, out))) = (gnode.def.remap, remap_source) {
+            let oi = run.graph.nodes[src.as_str()].def.output(&out).unwrap().0;
+            let outputs = match remap(&values, run.frame, run.frames, run.fps) {
+                Some(f) => {
+                    let mut sub = Run { graph: run.graph, dir: run.dir, frame: f.clamp(0, run.frames - 1), frames: run.frames, fps: run.fps, size: run.size, keys: HashMap::new(), outputs: HashMap::new() };
+                    vec![self.node(&mut sub, &src)?[oi].clone()]
+                }
+                None => {
+                    let s = self.node(run, &src)?[oi].clone();
+                    let s = s.surface().expect("surface source");
+                    vec![Value::Surface(Arc::new(surface::Surface::new(s.width, s.height)))]
+                }
+            };
+            self.last.push(id.into());
+            let outputs = Arc::new(outputs);
+            self.insert(k, outputs.clone(), 0);
+            run.outputs.insert(id.into(), outputs.clone());
+            return Ok(outputs);
         }
         let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref() };
         let outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
@@ -243,9 +270,15 @@ fn key(run: &mut Run, id: &str) -> Result<u64, Error> {
             GInput::Missing => {
                 return Err(Error::at("missing_input", id, Some(idef.name), format!("required input '{}' is not set", idef.name)));
             }
-            GInput::Value(v) => {
-                hash_value(v, &mut h);
-                if let Value::Path(rel) = v {
+            GInput::Value(_) | GInput::Anim(_) => {
+                // An animation is keyed by its value at this frame.
+                let v = match gi {
+                    GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
+                    GInput::Value(v) => v.clone(),
+                    _ => unreachable!(),
+                };
+                hash_value(&v, &mut h);
+                if let Value::Path(rel) = &v {
                     std::fs::read(run.dir.join(rel)).ok().hash(&mut h);
                 }
             }

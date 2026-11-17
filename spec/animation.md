@@ -47,7 +47,8 @@ With keys `k₀ … kₙ₋₁` sorted, `first = k₀.time`, `last = kₙ₋₁.
    `k₀.value`.
 4. `t ≥ last` (after step 2): `wrap` interpolates from `kₙ₋₁` to `k₀` with `rat = (t − last)/(T − last + first)`;
    otherwise `kₙ₋₁.value`.
-5. Otherwise between `from = kᵢ ≤ t < to = kᵢ₊₁`: `rat = (t − from.time)/(to.time − from.time)`.
+5. A frame equal to a key's `time` gives that key's value.
+6. Otherwise between `from = kᵢ < t < to = kᵢ₊₁`: `rat = (t − from.time)/(to.time − from.time)`.
 
 Interpolating `from → to` at `rat`: if `to.ease_in_type` is `cut` → `from.value`; else if `from.ease_out_type` is
 `cut` → `to.value`; else `e = ease(from, to, rat)` and the value is `lerp(from.value, to.value, e)` per component
