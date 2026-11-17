@@ -146,7 +146,7 @@ impl Gpu {
     }
 
     fn pipeline(&self, key: &str, shader: &str, n_textures: usize) -> Arc<Pipeline> {
-        let mut cache = self.pipelines.lock().unwrap();
+        let mut cache = self.pipelines.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(p) = cache.get(key) {
             return p.clone();
         }

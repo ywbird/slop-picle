@@ -86,8 +86,9 @@ fn ty_07_catalog_rules() {
                 assert!(matches!(i.ty, Type::Number | Type::Int | Type::Vec2), "{}.{}", def.ty, i.name);
             }
         }
+        let mut outs = std::collections::HashSet::new();
         for o in def.outputs {
-            assert!(name_ok(o.name) && names.insert(o.name), "{}.{}", def.ty, o.name);
+            assert!(name_ok(o.name) && outs.insert(o.name), "{}.{}", def.ty, o.name);
         }
     }
 }

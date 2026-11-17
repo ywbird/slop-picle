@@ -7,6 +7,12 @@ use crate::surface::Surface;
 use crate::types::{Type as T, Value};
 use std::sync::Arc;
 
+mod color;
+mod filter;
+mod generate;
+mod transform;
+mod value;
+
 type R = Result<Vec<Value>, NodeError>;
 
 const SURFACE_OUT: &[O] = &[O { name: "surface_out", ty: T::Surface }];
@@ -59,11 +65,6 @@ const NOISE_IN: &[I] = &[
 ];
 
 const NOISE_WGSL: &str = "
-fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
-    let K = vec4<f32>(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    let q = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(q - K.xxx, vec3<f32>(0.0), vec3<f32>(1.0)), c.y);
-}
 fn shade(px: vec2<i32>) -> vec4<f32> {
     let h = hash2(px.x, px.y, p.seed.x);
     if (p.color_mode.x == 0u) {
@@ -204,6 +205,14 @@ fn output(_: &mut Ctx, v: &[Value]) -> R {
     Ok(vec![v[0].clone()])
 }
 
+const fn node(ty: &'static str, category: &'static str, description: &'static str, inputs: &'static [I], run: crate::catalog::RunFn) -> NodeDef {
+    NodeDef { ty, category, description, inputs, outputs: SURFACE_OUT, run, reads_frame: false }
+}
+
+const fn value_node(ty: &'static str, description: &'static str, inputs: &'static [I], outputs: &'static [O], run: crate::catalog::RunFn) -> NodeDef {
+    NodeDef { ty, category: "value", description, inputs, outputs, run, reads_frame: false }
+}
+
 pub static ALL: &[NodeDef] = &[
     NodeDef { ty: "image", category: "io", description: "Read a PNG file.", inputs: IMAGE_IN, outputs: SURFACE_OUT, run: image, reads_frame: false },
     NodeDef { ty: "output", category: "io", description: "Mark the image `slopc render` writes.", inputs: OUTPUT_IN, outputs: SURFACE_OUT, run: output, reads_frame: false },
@@ -219,4 +228,31 @@ pub static ALL: &[NodeDef] = &[
         reads_frame: false,
     },
     NodeDef { ty: "blend", category: "compose", description: "Draw a foreground over a background with a blend mode.", inputs: BLEND_IN, outputs: SURFACE_OUT, run: blend, reads_frame: false },
+    node("gradient", "generate", "Draw a linear, circular or radial gradient.", generate::GRADIENT_IN, generate::gradient),
+    NodeDef { outputs: &[O { name: "colored", ty: T::Surface }], ..node("shape", "generate", "Draw a rectangle or ellipse.", generate::SHAPE_IN, generate::shape) },
+    node("cellular", "generate", "Cellular (Worley) noise: distance to the nearest feature point.", generate::CELLULAR_IN, generate::cellular),
+    node("checker", "generate", "Checkerboard pattern.", generate::CHECKER_IN, generate::checker),
+    node("stripe", "generate", "Alternating stripes.", generate::STRIPE_IN, generate::stripe),
+    node("scale", "transform", "Resize with nearest-neighbour sampling.", transform::SCALE_IN, transform::scale),
+    node("crop", "transform", "Remove pixels from the edges.", transform::CROP_IN, transform::crop),
+    node("flip", "transform", "Mirror horizontally and/or vertically.", transform::FLIP_IN, transform::flip),
+    node("offset", "transform", "Shift with wrap-around.", transform::OFFSET_IN, transform::offset),
+    node("downscale", "transform", "Shrink by merging blocks of pixels.", transform::DOWNSCALE_IN, transform::downscale),
+    node("blur", "filter", "Gaussian blur.", filter::BLUR_IN, filter::blur),
+    node("outline", "filter", "Draw an outline inside or outside opaque areas.", filter::OUTLINE_IN, filter::outline),
+    node("shadow", "filter", "Drop shadow behind opaque areas.", filter::SHADOW_IN, filter::shadow),
+    node("posterize", "filter", "Reduce colours to a palette or a number of steps.", filter::POSTERIZE_IN, filter::posterize),
+    node("dither", "filter", "Ordered or noise dithering between two nearest colours.", filter::DITHER_IN, filter::dither),
+    node("threshold", "filter", "Turn brightness and/or alpha into hard or soft steps.", filter::THRESHOLD_IN, filter::threshold),
+    node("displace", "filter", "Move pixels by the brightness of a map.", filter::DISPLACE_IN, filter::displace),
+    node("color_adjust", "color", "Brightness, contrast, exposure, HSV and colour blend.", color::COLOR_ADJUST_IN, color::color_adjust),
+    node("invert", "color", "Invert colours.", color::INVERT_IN, color::invert),
+    node("color_replace", "color", "Replace palette colours with others.", color::COLOR_REPLACE_IN, color::color_replace),
+    node("colorize", "color", "Map brightness to a gradient (gradient map).", color::COLORIZE_IN, color::colorize),
+    node("greyscale", "color", "Convert to grey.", color::GREYSCALE_IN, color::greyscale),
+    value_node("number", "A number.", value::NUMBER_IN, &[O { name: "number", ty: T::Number }], value::number),
+    value_node("color", "A colour.", value::COLOR_IN, &[O { name: "color", ty: T::Color }], value::color),
+    value_node("palette", "A list of colours.", value::PALETTE_IN, &[O { name: "palette", ty: T::Palette }], value::palette),
+    value_node("math", "Arithmetic on two numbers.", value::MATH_IN, &[O { name: "result", ty: T::Number }], value::math),
+    NodeDef { reads_frame: true, ..value_node("counter", "Frame index or animation progress.", value::COUNTER_IN, &[O { name: "value", ty: T::Number }], value::counter) },
 ];

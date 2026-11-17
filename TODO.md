@@ -63,17 +63,17 @@ Specified in [spec/project-file.md](spec/project-file.md).
 
 ### Nodes for the MVP
 
-A proposal of 33 nodes. Working names: the M3 spec maps each to its upstream node and takes upstream's name, inputs and defaults.
+33 nodes, named after their upstream nodes (see `spec/nodes.md`).
 
 | Category | Nodes |
 |---|---|
 | IO | image, output |
-| Generate | solid, gradient, shape, noise, cellular, checker, stripe |
-| Transform | transform, scale, crop, flip, offset |
-| Filter | blur, outline, shadow, pixelate, dither, threshold, displace |
-| Colour | adjust, invert, quantize, replace_color, gradient_map |
-| Compose | blend, mask |
-| Value | number, color, palette, math, frame |
+| Generate | solid, noise, gradient, shape, cellular, checker, stripe |
+| Transform | transform, scale, crop, flip, offset, downscale |
+| Filter | blur, outline, shadow, posterize, dither, threshold, displace |
+| Colour | color_adjust, invert, color_replace, colorize, greyscale |
+| Compose | blend |
+| Value | number, color, palette, math, counter |
 
 ## Milestones
 
@@ -108,7 +108,7 @@ Done when an agent builds a sprite from an empty project using MCP tools only.
 
 ### M3 — Node library
 
-- [ ] The remaining 27 nodes, each with a catalog description and a golden test
+- [x] The remaining 27 nodes, each with a catalog description and a golden test
 
 Done when all 33 nodes pass.
 

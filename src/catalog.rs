@@ -17,6 +17,8 @@ pub enum Default {
     Str(&'static str),
     /// `dimension` inputs: the project's size (`null` in JSON).
     ProjectSize,
+    /// Any literal written as JSON (palettes, gradients, padding).
+    Json(&'static str),
 }
 
 #[derive(Debug)]
@@ -95,6 +97,7 @@ pub fn default_json(d: Default) -> Option<Json> {
         Default::Color(s) | Default::Enum(s) | Default::Str(s) => json!(s),
         Default::Vec2(v) => json!(v),
         Default::ProjectSize => Json::Null,
+        Default::Json(text) => serde_json::from_str(text).expect("valid default JSON"),
     })
 }
 

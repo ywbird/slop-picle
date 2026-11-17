@@ -60,7 +60,8 @@ Shape (also the output of `slopc nodes --json`):
 - `required: true` inputs have no `default`. All other inputs have a `default` that fits their type and range,
   except `dimension` inputs, whose `default` is `null`, meaning the project's `width × height`.
 - `min` / `max` appear only on `number` and `int` inputs. `options` appears on `enum` inputs, non-empty.
-- Every node type has at least one output. Input and output names match `^[a-z][a-z0-9_]*$` and are unique per node.
+- Every node type has at least one output. Input and output names match `^[a-z][a-z0-9_]*$`; input names are unique
+  among inputs and output names among outputs (a value node may reuse its input name for its output, as upstream does).
 - Categories in M1: `io`, `generate`, `transform`, `filter`, `color`, `compose`, `value`.
 - `type`, input names and output names are stable once released: renaming one breaks saved projects.
 

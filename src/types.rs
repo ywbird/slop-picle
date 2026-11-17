@@ -11,6 +11,9 @@ pub enum Type {
     Color,
     Vec2,
     Dimension,
+    Padding,
+    Palette,
+    Gradient,
     Enum,
     Str,
     Path,
@@ -26,6 +29,9 @@ impl Type {
             Type::Color => "color",
             Type::Vec2 => "vec2",
             Type::Dimension => "dimension",
+            Type::Padding => "padding",
+            Type::Palette => "palette",
+            Type::Gradient => "gradient",
             Type::Enum => "enum",
             Type::Str => "string",
             Type::Path => "path",
@@ -47,6 +53,10 @@ pub enum Value {
     Color([u8; 4]),
     Vec2([f64; 2]),
     Dimension([u32; 2]),
+    /// right, top, left, bottom
+    Padding([u32; 4]),
+    Palette(Vec<[u8; 4]>),
+    Gradient(Gradient),
     /// Index into the input's options.
     Enum(usize),
     Str(String),
@@ -79,6 +89,9 @@ impl Value {
             Value::Color(_) => Type::Color,
             Value::Vec2(_) => Type::Vec2,
             Value::Dimension(_) => Type::Dimension,
+            Value::Padding(_) => Type::Padding,
+            Value::Palette(_) => Type::Palette,
+            Value::Gradient(_) => Type::Gradient,
             Value::Enum(_) => Type::Enum,
             Value::Str(_) => Type::Str,
             Value::Path(_) => Type::Path,
@@ -111,11 +124,56 @@ impl Value {
             Value::Color(c) => json!(format_color(*c)),
             Value::Vec2(v) => json!(v),
             Value::Dimension(v) => json!(v),
+            Value::Padding(v) => json!(v),
+            Value::Palette(p) => json!(p.iter().map(|c| format_color(*c)).collect::<Vec<_>>()),
+            Value::Gradient(g) => g.to_json(),
             Value::Enum(i) => def.and_then(|d| d.options.get(*i)).map_or(json!(i), |s| json!(s)),
             Value::Str(s) | Value::Path(s) => json!(s),
             Value::Surface(s) => json!(format!("<surface {}x{}>", s.width, s.height)),
             Value::None => Json::Null,
         }
+    }
+}
+
+pub const MAX_PALETTE: usize = 256;
+pub const MAX_KEYS: usize = 16;
+
+/// Upstream gradient: keys sorted by time; blend 0 = rgb, 1 = constant (spec/types.md#gradient-evaluation).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Gradient {
+    pub constant: bool,
+    pub keys: Vec<(f64, [u8; 4])>,
+}
+
+impl Gradient {
+    pub fn to_json(&self) -> Json {
+        json!({
+            "type": if self.constant { "constant" } else { "rgb" },
+            "keys": self.keys.iter().map(|(t, c)| json!({ "time": t, "color": format_color(*c) })).collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn eval(&self, t: f64) -> [f64; 4] {
+        let f = |c: [u8; 4]| c.map(|x| x as f64 / 255.0);
+        let first = self.keys[0];
+        if t <= first.0 {
+            return f(first.1);
+        }
+        for w in self.keys.windows(2) {
+            let ((t0, c0), (t1, c1)) = (w[0], w[1]);
+            if t1 == t {
+                return f(c1);
+            }
+            if t1 > t {
+                if self.constant {
+                    return f(c0);
+                }
+                let k = (t - t0) / (t1 - t0);
+                let (a, b) = (f(c0), f(c1));
+                return [0, 1, 2, 3].map(|i| a[i] + (b[i] - a[i]) * k);
+            }
+        }
+        f(self.keys[self.keys.len() - 1].1)
     }
 }
 
@@ -195,6 +253,53 @@ pub fn check_literal(def: &InputDef, j: &Json) -> Result<Value, LiteralError> {
             }
             Ok(Value::Dimension([w as u32, h as u32]))
         }
+        Type::Padding => {
+            let a = j.as_array().filter(|a| a.len() == 4).ok_or_else(bad)?;
+            let mut out = [0u32; 4];
+            for (o, v) in out.iter_mut().zip(a) {
+                let n = int_of(v).ok_or_else(bad)?;
+                if n < 0 {
+                    return Err(("out_of_range", format!("input '{}': padding values must be ≥ 0", def.name)));
+                }
+                *o = n as u32;
+            }
+            Ok(Value::Padding(out))
+        }
+        Type::Palette => {
+            let a = j.as_array().ok_or_else(bad)?;
+            if a.is_empty() || a.len() > MAX_PALETTE {
+                return Err(("out_of_range", format!("input '{}' needs 1..{MAX_PALETTE} colours, got {}", def.name, a.len())));
+            }
+            a.iter().map(|c| c.as_str().and_then(parse_color).ok_or_else(bad)).collect::<Result<_, _>>().map(Value::Palette)
+        }
+        Type::Gradient => {
+            let o = j.as_object().filter(|o| !o.contains_key("ref")).ok_or_else(bad)?;
+            if let Some(k) = o.keys().find(|k| *k != "type" && *k != "keys") {
+                return Err(("type_mismatch", format!("input '{}': unknown gradient key '{k}'", def.name)));
+            }
+            let constant = match o.get("type").map(|t| t.as_str()) {
+                None | Some(Some("rgb")) => false,
+                Some(Some("constant")) => true,
+                Some(Some(t)) => return Err(("invalid_enum", format!("input '{}': gradient type '{t}', expected rgb or constant", def.name))),
+                Some(None) => return Err(bad()),
+            };
+            let keys = o.get("keys").and_then(Json::as_array).ok_or_else(bad)?;
+            if keys.is_empty() || keys.len() > MAX_KEYS {
+                return Err(("out_of_range", format!("input '{}' needs 1..{MAX_KEYS} gradient keys", def.name)));
+            }
+            let mut out = vec![];
+            for k in keys {
+                let k = k.as_object().ok_or_else(bad)?;
+                let t = k.get("time").and_then(Json::as_f64).ok_or_else(bad)?;
+                let c = k.get("color").and_then(Json::as_str).and_then(parse_color).ok_or_else(bad)?;
+                if !(0.0..=1.0).contains(&t) {
+                    return Err(("out_of_range", format!("input '{}': gradient key time {t} outside 0..1", def.name)));
+                }
+                out.push((t, c));
+            }
+            out.sort_by(|a, b| a.0.total_cmp(&b.0));
+            Ok(Value::Gradient(Gradient { constant, keys: out }))
+        }
         Type::Enum => {
             let s = j.as_str().ok_or_else(bad)?;
             let i = def.options.iter().position(|o| *o == s).ok_or_else(|| {
@@ -220,5 +325,6 @@ pub fn default_value(def: &InputDef, project: [u32; 2]) -> Option<Value> {
         Default::Enum(s) => Value::Enum(def.options.iter().position(|o| *o == s).expect("valid default option")),
         Default::Str(s) => Value::Str(s.into()),
         Default::ProjectSize => Value::Dimension(project),
+        Default::Json(text) => check_literal(def, &serde_json::from_str(text).expect("valid default JSON")).expect("valid default"),
     })
 }

@@ -33,6 +33,8 @@ pub struct Ctx<'a> {
     pub def: &'static NodeDef,
     pub project_size: [u32; 2],
     pub frame: i64,
+    /// Total frames in the project.
+    pub frames: i64,
     pub dir: &'a Path,
     /// When set, files read by nodes must resolve inside this (canonical) directory.
     pub root: Option<&'a Path>,
@@ -82,6 +84,7 @@ struct Run<'a> {
     graph: &'a Graph,
     dir: &'a Path,
     frame: i64,
+    frames: i64,
     size: [u32; 2],
     keys: HashMap<String, u64>,
     outputs: HashMap<String, Arc<Vec<Value>>>,
@@ -96,6 +99,14 @@ fn hash_value(v: &Value, h: &mut impl Hasher) {
         Value::Color(x) => x.hash(h),
         Value::Vec2(x) => x.map(f64::to_bits).hash(h),
         Value::Dimension(x) => x.hash(h),
+        Value::Padding(x) => x.hash(h),
+        Value::Palette(x) => x.hash(h),
+        Value::Gradient(g) => {
+            g.constant.hash(h);
+            for (t, c) in &g.keys {
+                (t.to_bits(), c).hash(h);
+            }
+        }
         Value::Enum(x) => x.hash(h),
         Value::Str(x) | Value::Path(x) => x.hash(h),
         Value::Surface(s) => (s.width, s.height, &s.data).hash(h),
@@ -130,7 +141,7 @@ impl Evaluator {
         if frame < 0 || frame >= p.settings.frames {
             return Err(Error::new("frame_out_of_range", format!("frame {frame} is outside 0..{}", p.settings.frames)));
         }
-        let mut run = Run { graph: &graph, dir, frame, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
+        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
         let outs = self.node(&mut run, id)?;
         Ok(outs[oi].clone())
     }
@@ -138,7 +149,7 @@ impl Evaluator {
     /// Cache keys of every node that can be keyed (for thumbnails); nodes with missing inputs are absent.
     pub fn keys(p: &Project, dir: &Path, frame: i64) -> HashMap<String, String> {
         let Ok(graph) = project::graph(p) else { return HashMap::new() };
-        let mut run = Run { graph: &graph, dir, frame, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
+        let mut run = Run { graph: &graph, dir, frame, frames: p.settings.frames, size: p.settings.size(), keys: HashMap::new(), outputs: HashMap::new() };
         let mut out = HashMap::new();
         for id in graph.nodes.keys() {
             if let Ok(k) = key(&mut run, id) {
@@ -173,7 +184,7 @@ impl Evaluator {
                 }
             });
         }
-        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, dir: run.dir, root: self.root.as_deref() };
+        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref() };
         let outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
             NodeError::Eval(m) => Error::at("eval_error", id, None, m),
             NodeError::Gpu(m) => Error::at("gpu_unavailable", id, None, m),

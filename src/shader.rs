@@ -4,7 +4,7 @@ use crate::catalog::NodeDef;
 use crate::eval::{Ctx, NodeError};
 use crate::gpu::ENTRY;
 use crate::surface::Surface;
-use crate::types::{Type, Value};
+use crate::types::{MAX_KEYS, MAX_PALETTE, Type, Value};
 
 const HELPERS: &str = "
 fn pcg(v: u32) -> u32 {
@@ -16,14 +16,35 @@ fn hash2(x: i32, y: i32, seed: i32) -> u32 {
     return pcg(bitcast<u32>(x) ^ pcg(bitcast<u32>(y) ^ pcg(bitcast<u32>(seed))));
 }
 fn unit(h: u32) -> f32 { return f32(h >> 8u) / 16777216.0; }
+fn lum(c: vec3<f32>) -> f32 { return dot(c, vec3<f32>(0.2126, 0.7152, 0.0722)); }
+fn rgb2hsv(c: vec3<f32>) -> vec3<f32> {
+    let K = vec4<f32>(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    let q0 = mix(vec4<f32>(c.bg, K.wz), vec4<f32>(c.gb, K.xy), step(c.b, c.g));
+    let q = mix(vec4<f32>(q0.xyw, c.r), vec4<f32>(c.r, q0.yzx), step(q0.x, c.r));
+    let d = q.x - min(q.w, q.y);
+    let e = 0.0000000001;
+    return vec3<f32>(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
+    let K = vec4<f32>(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    let q = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(q - K.xxx, vec3<f32>(0.0), vec3<f32>(1.0)), c.y);
+}
 ";
+
+/// WGSL keywords and reserved words that may collide with input names; such fields get a trailing `_`.
+const RESERVED: &[&str] = &["loop", "type", "override", "default", "const", "enable", "alias", "mod", "filter", "sample", "from", "mode"];
+
+pub fn field(name: &str) -> String {
+    if RESERVED.contains(&name) { format!("{name}_") } else { name.to_string() }
+}
 
 fn field_type(t: Type) -> Option<&'static str> {
     match t {
         Type::Number | Type::Color | Type::Vec2 => Some("vec4<f32>"),
         Type::Int => Some("vec4<i32>"),
-        Type::Bool | Type::Enum | Type::Dimension => Some("vec4<u32>"),
-        Type::Str | Type::Path | Type::Surface => None,
+        Type::Bool | Type::Enum | Type::Dimension | Type::Padding => Some("vec4<u32>"),
+        Type::Str | Type::Path | Type::Surface | Type::Palette | Type::Gradient => None,
     }
 }
 
@@ -42,8 +63,30 @@ pub fn module(def: &NodeDef, extras: &[&str], body: &str) -> String {
                 "fn load_{n}(q: vec2<i32>) -> vec4<f32> {{\n    let s = vec2<i32>(p.{n}_info.xy);\n    if (q.x < 0 || q.y < 0 || q.x >= s.x || q.y >= s.y) {{ return vec4<f32>(0.0); }}\n    return textureLoad(t_{n}, q, 0);\n}}\n"
             ));
             binding += 1;
+        } else if i.ty == Type::Palette {
+            fields.push(format!("    {0}_info: vec4<u32>,\n    {0}_colors: array<vec4<f32>, {MAX_PALETTE}>,", i.name));
+        } else if i.ty == Type::Gradient {
+            let n = i.name;
+            fields.push(format!("    {n}_info: vec4<u32>,\n    {n}_times: array<vec4<f32>, {MAX_KEYS}>,\n    {n}_colors: array<vec4<f32>, {MAX_KEYS}>,"));
+            loaders.push_str(&format!(
+                "fn eval_{n}(t: f32) -> vec4<f32> {{
+    let n = i32(p.{n}_info.x);
+    if (t <= p.{n}_times[0].x) {{ return p.{n}_colors[0]; }}
+    for (var i = 1; i < n; i++) {{
+        let ti = p.{n}_times[i].x;
+        if (ti == t) {{ return p.{n}_colors[i]; }}
+        if (ti > t) {{
+            if (p.{n}_info.y == 1u) {{ return p.{n}_colors[i - 1]; }}
+            let f = (t - p.{n}_times[i - 1].x) / (ti - p.{n}_times[i - 1].x);
+            return mix(p.{n}_colors[i - 1], p.{n}_colors[i], f);
+        }}
+    }}
+    return p.{n}_colors[n - 1];
+}}
+"
+            ));
         } else if let Some(t) = field_type(i.ty) {
-            fields.push(format!("    {}: {t},", i.name));
+            fields.push(format!("    {}: {t},", field(i.name)));
         }
     }
     for e in extras {
@@ -75,6 +118,22 @@ pub fn uniforms(def: &NodeDef, values: &[Value], out: [u32; 2], frame: i64, extr
             (Type::Bool, Value::Bool(x)) => push_u(&mut b, [*x as u32, 0, 0, 0]),
             (Type::Enum, Value::Enum(x)) => push_u(&mut b, [*x as u32, 0, 0, 0]),
             (Type::Dimension, Value::Dimension([w, h])) => push_u(&mut b, [*w, *h, 0, 0]),
+            (Type::Padding, Value::Padding(v)) => push_u(&mut b, *v),
+            (Type::Palette, Value::Palette(cols)) => {
+                push_u(&mut b, [cols.len() as u32, 0, 0, 0]);
+                for i in 0..MAX_PALETTE {
+                    push_f(&mut b, cols.get(i).map_or([0.0; 4], |c| c.map(|x| x as f32 / 255.0)));
+                }
+            }
+            (Type::Gradient, Value::Gradient(g)) => {
+                push_u(&mut b, [g.keys.len() as u32, g.constant as u32, 0, 0]);
+                for i in 0..MAX_KEYS {
+                    push_f(&mut b, [g.keys.get(i).map_or(2.0, |k| k.0 as f32), 0.0, 0.0, 0.0]);
+                }
+                for i in 0..MAX_KEYS {
+                    push_f(&mut b, g.keys.get(i).map_or([0.0; 4], |k| k.1.map(|x| x as f32 / 255.0)));
+                }
+            }
             (Type::Color, Value::Color(c)) => push_f(&mut b, c.map(|x| x as f32 / 255.0)),
             (Type::Vec2, Value::Vec2([x, y])) => push_f(&mut b, [*x as f32, *y as f32, 0.0, 0.0]),
             (Type::Str | Type::Path, _) => {}
