@@ -1,22 +1,12 @@
 <script lang="ts">
-  import { api } from "./lib/api";
   import { dragOffset } from "./lib/drag";
 
-  let {
-    path,
-    id,
-    nodeKey,
-    frame,
-    x,
-    y,
-    close,
-  }: { path: string; id: string; nodeKey: string; frame: number; x: number; y: number; close: () => void } = $props();
+  let { id, src, frame, x, y, close }: { id: string; src: string; frame: number; x: number; y: number; close: () => void } = $props();
 
   let dx = $state(0);
   let dy = $state(0);
   let zoom = $state(8);
   let failed = $state(false);
-  const src = $derived(api.renderUrl(path, id, frame, nodeKey));
   const drag = (e: PointerEvent) => dragOffset(e, { x: dx, y: dy }, (a, b) => ((dx = a), (dy = b)));
 </script>
 

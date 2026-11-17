@@ -61,6 +61,17 @@ export function thumbUrl(path: string, node: string, key: string, frame = 0): st
   return `/api/render?path=${encodeURIComponent(path)}&node=${encodeURIComponent(node)}&frame=${frame}&k=${encodeURIComponent(key)}`;
 }
 
+/** One URL per node and key for the session: a key seen at another frame reuses its URL (same picture). */
+export function thumbFor(urls: Map<string, string>, path: string, node: string, key: string, frame: number): string {
+  const id = `${node}\u0000${key}`;
+  let u = urls.get(id);
+  if (!u) {
+    u = thumbUrl(path, node, key, frame);
+    urls.set(id, u);
+  }
+  return u;
+}
+
 /** An animated input value: `{ anim: [{ time, value, ... }], on_end? }`. */
 export type AnimKey = { time: number; value: unknown; ease_in_type?: string; ease_out_type?: string };
 export function animOf(v: unknown): AnimKey[] | null {
@@ -104,6 +115,7 @@ export function toFlow(
   keys: Record<string, string>,
   path: string,
   frame = 0,
+  urls?: Map<string, string>,
 ): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const pos = layout(project);
   const nodes: FlowNode[] = [];
@@ -122,7 +134,7 @@ export function toFlow(
         def,
         inputs: n.inputs ?? {},
         errors: errors.filter((e) => e.node === id).map((e) => (e.input ? `${e.input}: ${e.message}` : e.message)),
-        thumb: surfaceOut && keys[id] ? thumbUrl(path, id, keys[id], frame) : null,
+        thumb: surfaceOut && keys[id] ? (urls ? thumbFor(urls, path, id, keys[id], frame) : thumbUrl(path, id, keys[id], frame)) : null,
       },
     });
     for (const [input, v] of Object.entries(n.inputs ?? {})) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { SvelteFlow, Background, BackgroundVariant, Controls, Panel, SelectionMode, type Connection } from "@xyflow/svelte";
   import { api, ApiFailure, type ProjectView } from "./lib/api";
   import { connectOp, duplicateOp, edgeDeleteOp, moveOp, toFlow, type Catalog, type FlowEdge, type FlowNode, type Op } from "./lib/graph";
@@ -21,8 +22,7 @@
   const frames = $derived((view as ProjectView | null)?.project.settings?.frames ?? 1);
 
   function setFrame(f: number) {
-    frame = Math.max(0, Math.min(frames - 1, f));
-    reload();
+    return showFrame(Math.max(0, Math.min(frames - 1, f)));
   }
   let toast = $state("");
   let missing = $state(false);
@@ -70,15 +70,45 @@
     };
   }
 
-  async function reload() {
+  // Thumbnail URLs per node and key, and preloaded images kept alive so the browser can show them at once.
+  const urls = new Map<string, string>();
+  const preloaded = new Map<string, HTMLImageElement>();
+  let seq = 0;
+
+  function preload(list: string[]) {
+    return Promise.all(
+      list.map((u) => {
+        let img = preloaded.get(u);
+        if (!img) {
+          img = new Image();
+          img.src = u;
+          preloaded.set(u, img);
+          // shortcut: keeps the newest 4000 images; enough for long loops of small sprites, raise for larger ones.
+          if (preloaded.size > 4000) preloaded.delete(preloaded.keys().next().value!);
+        }
+        return img.decode().catch(() => {});
+      }),
+    );
+  }
+
+  /** Load frame `f` and show it only once its data and changed images are ready; a newer call supersedes this one. */
+  async function showFrame(f: number): Promise<boolean> {
+    const mine = ++seq;
+    let v: ProjectView;
     try {
-      view = await api.project(path, frame);
-      if (frame >= (view.project.settings?.frames ?? 1)) frame = 0;
+      v = await api.project(path, f);
     } catch (e) {
       if (e instanceof ApiFailure && e.status === 404) missing = true;
-      return;
+      return false;
     }
-    const flow = toFlow(view.project, catalog, view.errors, view.keys, path, frame);
+    if (mine !== seq) return false;
+    if (f >= (v.project.settings?.frames ?? 1)) return showFrame(0);
+    const flow = toFlow(v.project, catalog, v.errors, v.keys, path, f, urls);
+    const shown = new Set(nodes.map((n) => n.data.thumb));
+    await preload(flow.nodes.map((n) => n.data.thumb).filter((u): u is string => !!u && !shown.has(u)));
+    if (mine !== seq) return false;
+    view = v;
+    frame = f;
     // Keep unchanged objects so an in-progress drag or connection survives a reload.
     const old = new Map(nodes.map((n) => [n.id, n]));
     const same = (a: FlowNode | undefined, b: FlowNode) =>
@@ -87,8 +117,11 @@
     if (next.length !== nodes.length || next.some((n, i) => n !== nodes[i])) nodes = next;
     const oldEdges = new Set(edges.map((e) => e.id));
     if (flow.edges.length !== edges.length || flow.edges.some((e) => !oldEdges.has(e.id))) edges = flow.edges;
-    if (selected && !view.project.nodes?.[selected]) selected = null;
+    if (selected && !v.project.nodes?.[selected]) selected = null;
+    return true;
   }
+
+  const reload = () => showFrame(frame);
 
   type Step = { undo: Op[]; redo: Op[] };
   let undoStack: Step[] = $state([]);
@@ -169,10 +202,14 @@
     return false;
   }
 
+  // Depend on `path` only: reload() reads `frame`, and re-running this on every frame change reopened the events
+  // stream and raced playback.
   $effect(() => {
-    reload();
-    const stop = api.events(path, () => reload());
-    return stop;
+    const p = path;
+    return untrack(() => {
+      reload();
+      return api.events(p, () => reload());
+    });
   });
 </script>
 
@@ -251,9 +288,8 @@
       {/if}
       {#if imagePopup && view.project.nodes?.[imagePopup.id]}
         <ImagePopup
-          {path}
           id={imagePopup.id}
-          nodeKey={view.keys[imagePopup.id] ?? ""}
+          src={nodes.find((n) => n.id === imagePopup?.id)?.data.thumb ?? ""}
           {frame}
           x={imagePopup.x}
           y={imagePopup.y}

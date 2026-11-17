@@ -1,20 +1,26 @@
 <script lang="ts">
-  let { frame, frames, fps, setFrame }: { frame: number; frames: number; fps: number; setFrame: (f: number) => void } = $props();
+  let {
+    frame,
+    frames,
+    fps,
+    setFrame,
+  }: { frame: number; frames: number; fps: number; setFrame: (f: number) => Promise<unknown> } = $props();
 
   let playing = $state(false);
-  // Read the latest frame inside the timer without re-creating it each tick.
-  let current = 0;
-  $effect(() => {
-    current = frame;
-  });
-  $effect(() => {
-    if (!playing) return;
-    const id = setInterval(() => setFrame((current + 1) % frames), 1000 / Math.max(1, fps));
-    return () => clearInterval(id);
-  });
+
+  // Show each next frame once it is ready, at most `fps` per second (spec/animation.md, Web UI).
+  async function play() {
+    while (playing) {
+      const t0 = performance.now();
+      await setFrame((frame + 1) % frames);
+      const rest = 1000 / Math.max(1, fps) - (performance.now() - t0);
+      if (rest > 0) await new Promise((r) => setTimeout(r, rest));
+    }
+  }
 
   export function toggle() {
     playing = !playing;
+    if (playing) play();
   }
   const step = (d: number) => setFrame((frame + d + frames) % frames);
 </script>
