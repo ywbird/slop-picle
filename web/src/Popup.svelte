@@ -2,6 +2,7 @@
   import type { ProjectView } from "./lib/api";
   import { getDef, literalOp, parseRef, resetOp, type Catalog, type Op } from "./lib/graph";
   import Widget from "./Widget.svelte";
+  import { dragOffset } from "./lib/drag";
 
   let {
     catalog,
@@ -28,15 +29,7 @@
   let dx = $state(0);
   let dy = $state(0);
 
-  function drag(e: PointerEvent) {
-    if ((e.target as HTMLElement).closest("button, input")) return;
-    const sx = e.clientX - dx;
-    const sy = e.clientY - dy;
-    const move = (m: PointerEvent) => ((dx = m.clientX - sx), (dy = m.clientY - sy));
-    const up = () => (window.removeEventListener("pointermove", move), window.removeEventListener("pointerup", up));
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
+  const drag = (e: PointerEvent) => dragOffset(e, { x: dx, y: dy }, (x, y) => ((dx = x), (dy = y)));
 
   async function rename(e: Event & { currentTarget: HTMLInputElement }) {
     const to = e.currentTarget.value.trim();

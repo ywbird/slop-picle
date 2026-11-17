@@ -47,7 +47,7 @@
   .row { position: relative; padding: 2px 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
   .out { text-align: right; }
   .linked { color: var(--accent); }
-  .thumb { display: block; max-width: 64px; max-height: 64px; min-width: 32px; margin: 2px auto 10px; border-radius: 2px; background: repeating-conic-gradient(#232b29 0 25%, #2a3331 0 50%) 0 0 / 8px 8px; }
+  .thumb { cursor: zoom-in; display: block; max-width: 64px; max-height: 64px; min-width: 32px; margin: 2px auto 10px; border-radius: 2px; background: repeating-conic-gradient(#232b29 0 25%, #2a3331 0 50%) 0 0 / 8px 8px; }
   .errors { color: var(--error); padding: 6px 10px; border-top: 1px solid var(--line); }
   :global(.h) { width: 9px; height: 9px; border: 2px solid var(--surface); }
   :global(.t-surface) { background: #e0b36a !important; }

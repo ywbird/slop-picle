@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { SvelteFlow, Background, Controls, Panel, type Connection } from "@xyflow/svelte";
+  import { SvelteFlow, Background, BackgroundVariant, Controls, Panel, SelectionMode, type Connection } from "@xyflow/svelte";
   import { api, ApiFailure, type ProjectView } from "./lib/api";
   import { connectOp, duplicateOp, edgeDeleteOp, moveOp, toFlow, type Catalog, type FlowEdge, type FlowNode, type Op } from "./lib/graph";
   import SlopNode from "./SlopNode.svelte";
   import Popup from "./Popup.svelte";
   import SidePanel from "./Panel.svelte";
+  import ImagePopup from "./ImagePopup.svelte";
   import AddNode from "./AddNode.svelte";
   import ContextMenu, { type MenuItem } from "./ContextMenu.svelte";
 
@@ -18,20 +19,31 @@
   let missing = $state(false);
   const nodeTypes = { slopc: SlopNode };
   let popup: { x: number; y: number } | null = $state(null);
+  let imagePopup: { id: string; x: number; y: number } | null = $state(null);
   let menu: { x: number; y: number; items?: MenuItem[]; add?: boolean } | null = $state(null);
 
-  function openPopup(id: string) {
-    selected = id;
+  /** Where a card opens beside node `id`: right of it, or left when there is no room. */
+  function beside(id: string, w: number) {
     const r = document.querySelector(`.svelte-flow__node[data-id="${CSS.escape(id)}"]`)?.getBoundingClientRect();
-    if (!r) return;
-    const w = 360;
+    if (!r) return null;
     const x = r.right + 12 + w > innerWidth ? Math.max(8, r.left - w - 12) : r.right + 12;
-    popup = { x, y: Math.max(48, Math.min(r.top, innerHeight - 320)) };
+    return { x, y: Math.max(48, Math.min(r.top, innerHeight - 320)) };
+  }
+
+  function nodeClick(id: string, e: MouseEvent | TouchEvent) {
+    if ((e.target as Element).closest("img.thumb")) {
+      const at = beside(id, 360);
+      if (at) imagePopup = { id, ...at };
+      return;
+    }
+    selected = id;
+    popup = beside(id, 360);
   }
 
   function closeAll() {
     selected = null;
     popup = null;
+    imagePopup = null;
     menu = null;
   }
 
@@ -109,6 +121,7 @@
   onkeydown={(e) => {
     if (e.key === "Escape") {
       if (menu) menu = null;
+      else if (imagePopup) imagePopup = null;
       else popup = null;
     }
   }}
@@ -137,7 +150,10 @@
         {onbeforedelete}
         proOptions={{ hideAttribution: true }}
         onnodedragstop={({ nodes: moved }) => apply(moved.map((n) => moveOp(n.id, n.position)))}
-        onnodeclick={({ node }) => openPopup(node.id)}
+        onnodeclick={({ node, event }) => nodeClick(node.id, event)}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1]}
         onpaneclick={closeAll}
         onnodecontextmenu={({ node, event }) => nodeMenu(node.id, event)}
         onedgecontextmenu={({ edge, event }) => {
@@ -149,7 +165,8 @@
           menu = { x: event.clientX, y: event.clientY, add: true };
         }}
       >
-        <Background gap={24} />
+        <Background id="minor" variant={BackgroundVariant.Lines} gap={24} lineWidth={1} patternColor="#222b28" />
+        <Background id="major" variant={BackgroundVariant.Lines} gap={120} lineWidth={1} patternColor="#2e3a36" />
         <Controls />
         <Panel position="top-left"><AddNode {catalog} add={(op) => apply([op])} /></Panel>
         {#if menu}
@@ -159,9 +176,20 @@
       {#if toast}<button class="toast" onclick={() => (toast = "")}>{toast}</button>{/if}
     </div>
     {#if view}
-      <SidePanel {path} {catalog} {view} {selected} {apply} />
+      <SidePanel {view} {apply} />
       {#if popup && selected}
         <Popup {catalog} {view} bind:id={selected} x={popup.x} y={popup.y} {apply} close={() => (popup = null)} />
+      {/if}
+      {#if imagePopup && view.project.nodes?.[imagePopup.id]}
+        <ImagePopup
+          {path}
+          id={imagePopup.id}
+          nodeKey={view.keys[imagePopup.id] ?? ""}
+          frames={view.project.settings?.frames ?? 1}
+          x={imagePopup.x}
+          y={imagePopup.y}
+          close={() => (imagePopup = null)}
+        />
       {/if}
     {/if}
   </div>

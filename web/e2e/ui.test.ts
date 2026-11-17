@@ -141,8 +141,9 @@ test("WEB-20 box select and group move", async () => {
   const box = async (id: string) => (await page.locator(`.svelte-flow__node[data-id="${id}"]`).boundingBox())!;
   const a = await box("bg");
   const b = await box("n");
+  // Nodes touching the box are selected; keep the box on screen.
   const x0 = Math.min(a.x, b.x) - 12, y0 = Math.min(a.y, b.y) - 12;
-  const x1 = Math.max(a.x + a.width, b.x + b.width) + 12, y1 = Math.max(a.y + a.height, b.y + b.height) + 12;
+  const x1 = Math.max(a.x + a.width, b.x + b.width) + 12, y1 = Math.min(Math.max(a.y, b.y) + 40, 880);
   await page.mouse.move(x1, y1);
   await page.mouse.down();
   await page.mouse.move(x0, y0, { steps: 15 });
