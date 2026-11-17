@@ -2,7 +2,7 @@
 
 Svelte 5 + Svelte Flow (`@xyflow/svelte`), built with Vite and bun into `web/dist`, embedded in `slopc serve`.
 All rendering happens on the server; the UI shows PNGs from `/api/render`. Layout and naming follow upstream's
-panels loosely: graph, inspector, preview.
+panels loosely: graph, node popups, settings.
 
 ## Screens
 
@@ -25,10 +25,14 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
   button: the chosen PNG goes to `assets/<file name>` via `POST /api/upload`, then the input is set to that path),
   palette as a list of colours (add, remove), gradient as type + key list (time, colour). A ref input shows its source
   and a disconnect button. Each input has a reset button (unset to default).
-- *Side panel* (right). Preview and project settings. Open while a node is selected, collapsed to a thin bar
-  otherwise; a toggle on the bar opens or closes it by hand until the selection changes.
-  The preview shows the selected node (or the project's `output` node) with a pixelated zoom (1–32) and a frame number
-  (0 … frames − 1); settings are width, height, frames, fps.
+- *Image popup.* Clicking a node's thumbnail opens a floating card beside the node with its first output rendered
+  large: pixelated zoom (1–32), frame number (0 … frames − 1) and a link that downloads the PNG. Draggable by its header;
+  Esc or its close button closes it. It can be open together with the value popup.
+- *Side panel* (right). Project settings only (width, height, frames, fps). Collapsed by default to a thin bar; only its
+  toggle opens and closes it (selection does not).
+- *Canvas.* A square line grid (24 px cells) with a stronger major line every 5 cells, as in upstream's graph.
+  As upstream: left-drag on the empty canvas draws a selection box; middle-drag, or Space + drag, pans; the wheel
+  zooms. Dragging any selected node moves the whole selection, saved as one batch of `move_node` ops.
 - *Context menus* (right click). On a node: Delete, Duplicate. On an edge: Disconnect. On the empty canvas: the
   add-node search, adding at the cursor. Esc or a click elsewhere closes the menu. Delete/Backspace keep working.
 - *Add node.* A search box (top left, and in the canvas menu) listing catalog types by name, category and
@@ -90,6 +94,9 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-13 | `duplicateOp` on a node with inputs, label and pos | `add_node` with the same type, inputs, label; pos + 40 |
 | WEB-14 | headless Chromium: node menu Delete / Duplicate; edge menu Disconnect; canvas menu add at the cursor | node gone from the file / a copy added / input unset / a node near the cursor's flow position |
 | WEB-15 | headless Chromium: click a node | a popup beside it with its inputs; Esc closes it |
-| WEB-16 | headless Chromium: nothing selected / node selected / toggle | panel collapsed / open / toggles |
+| WEB-16 | headless Chromium: on load / node selected / toggle twice | panel collapsed / still collapsed / opens with the settings fields, then closes |
 | WEB-17 | headless Chromium: the editor | no `.svelte-flow__attribution` element |
+| WEB-18 | headless Chromium: click a node's thumbnail; change zoom; Esc | an image card with the node's PNG at its size; the shown width follows the zoom; a download link to `/api/render`; closes |
+| WEB-19 | headless Chromium: the canvas | a line-grid background with two pattern layers (minor and major) |
+| WEB-20 | headless Chromium: drag a box over two nodes, then drag one of them | both selected; both move; one `/api/ops` request with two `move_node` ops |
 | WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` (in the popup) | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |
