@@ -114,12 +114,12 @@ Done when all 33 nodes pass.
 
 ### M4 — Server and web UI (people can work)
 
-- [ ] `slopc serve --root --host --port --token`: catalog, project list / create / read, ops, render PNG
-- [ ] Token auth: bearer header for API clients, cookie for the browser. A generated token is printed as a ready-to-open URL
-- [ ] Checks and limits: `Origin` / `Host` validation, request size cap
-- [ ] File watch pushed over SSE, with per-node output hashes so only changed thumbnails reload
-- [ ] Web: graph (Svelte Flow, one generic node component with a thumbnail), add-node search, inspector with a widget per input type, preview (pixelated zoom, frame number), validation errors shown on nodes
-- [ ] Web build embedded in the binary
+- [x] `slopc serve --root --host --port --token`: catalog, project list / create / read, ops, render PNG
+- [x] Token auth: bearer header for API clients, cookie for the browser. A generated token is printed as a ready-to-open URL
+- [x] Checks and limits: `Origin` / `Host` validation, request size cap
+- [x] File watch pushed over SSE, with per-node output hashes so only changed thumbnails reload
+- [x] Web: graph (Svelte Flow, one generic node component with a thumbnail), add-node search, inspector with a widget per input type, preview (pixelated zoom, frame number), validation errors shown on nodes
+- [x] Web build embedded in the binary
 
 Done when a person edits a project in the browser, and an edit made through MCP shows up in the open page without a reload.
 

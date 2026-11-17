@@ -1,0 +1,42 @@
+// Fetch wrapper for the slopc API (cookie auth; errors keep the server's shape).
+import type { ApiError, Catalog, Op, ProjectFile } from "./graph";
+
+export class ApiFailure extends Error {
+  constructor(public status: number, public errors: ApiError[]) {
+    super(errors.map((e) => e.message).join("; ") || `HTTP ${status}`);
+  }
+}
+
+async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    credentials: "same-origin",
+  });
+  if (res.status === 204) return undefined as T;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiFailure(res.status, data.errors ?? []);
+  return data as T;
+}
+
+export type ProjectView = { project: ProjectFile; errors: ApiError[]; keys: Record<string, string> };
+export type OpResult = { ok: true; created: string[]; warnings: ApiError[] };
+
+const q = (path: string) => `path=${encodeURIComponent(path)}`;
+
+export const api = {
+  login: (token: string) => call<void>("POST", "/api/login", { token }),
+  catalog: () => call<Catalog>("GET", "/api/catalog"),
+  projects: () => call<{ projects: string[] }>("GET", "/api/projects"),
+  create: (path: string, width: number, height: number) => call<unknown>("POST", "/api/projects", { path, width, height }),
+  project: (path: string) => call<ProjectView>("GET", `/api/project?${q(path)}`),
+  ops: (path: string, ops: Op[]) => call<OpResult>("POST", `/api/ops?${q(path)}`, ops),
+  renderUrl: (path: string, node: string | null, frame: number, key = "") =>
+    `/api/render?${q(path)}${node ? `&node=${encodeURIComponent(node)}` : ""}&frame=${frame}&k=${encodeURIComponent(key)}`,
+  events: (path: string, onChange: (keys: Record<string, string>) => void): (() => void) => {
+    const es = new EventSource(`/api/events?${q(path)}`);
+    es.addEventListener("changed", (e) => onChange(JSON.parse((e as MessageEvent).data).keys));
+    return () => es.close();
+  },
+};
