@@ -13,19 +13,34 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
 
 **Editor.**
 
-- *Graph* (centre). One generic node component for every type: a header with the id (and label, if any) and the type;
+- *Graph* (full width). One generic node component for every type: a header with the id (and label, if any) and the type;
   one row per input with a target handle on the left; output handles on the right; a thumbnail of the first output
   when it is a surface (`/api/render` at scale 1, shown at up to 64 px with pixelated scaling; the URL carries the node's
   key so it reloads only when the key changes). Nodes with errors get a red border and list the messages.
-- *Inspector* (right). For the selected node: id (rename), label, and a widget per input type: number and int fields
-  with min/max, bool checkbox, colour picker plus alpha, vec2 / dimension / padding as number groups, enum select,
-  string and path text (a `path` input also has an upload button: the chosen PNG goes to `assets/<file name>` via
-  `POST /api/upload`, then the input is set to that path), palette as a list of colours (add, remove), gradient as type + key list (time, colour).
-  A ref input shows its source and a disconnect button. Each input has a reset button (unset to default).
-- *Preview* (bottom of the inspector). The selected node (or the project's `output` node) rendered with a pixelated
-  zoom (1–32) and a frame number (0 … frames − 1). Project settings (width, height, frames, fps) are editable here.
-- *Add node.* A search box listing catalog types by name, category and description; choosing one adds the node at the
-  centre of the view.
+  No Svelte Flow attribution link (user request).
+- *Node popup.* Clicking a node opens a floating card beside it (to its right, clamped to the window), draggable by its
+  header; an empty-canvas click, Esc or its close button closes it. It holds what the inspector held: id (rename),
+  label, and a widget per input type: number and int fields with min/max, bool checkbox, colour picker plus alpha,
+  vec2 / dimension / padding as number groups, enum select, string and path text (a `path` input also has an upload
+  button: the chosen PNG goes to `assets/<file name>` via `POST /api/upload`, then the input is set to that path),
+  palette as a list of colours (add, remove), gradient as type + key list (time, colour). A ref input shows its source
+  and a disconnect button. Each input has a reset button (unset to default).
+- *Side panel* (right). Preview and project settings. Open while a node is selected, collapsed to a thin bar
+  otherwise; a toggle on the bar opens or closes it by hand until the selection changes.
+  The preview shows the selected node (or the project's `output` node) with a pixelated zoom (1–32) and a frame number
+  (0 … frames − 1); settings are width, height, frames, fps.
+- *Context menus* (right click). On a node: Delete, Duplicate. On an edge: Disconnect. On the empty canvas: the
+  add-node search, adding at the cursor. Esc or a click elsewhere closes the menu. Delete/Backspace keep working.
+- *Add node.* A search box (top left, and in the canvas menu) listing catalog types by name, category and
+  description.
+
+**Look.** From the design-taste-frontend deal for a developer tool (`.taste-skill/history.json`): palette
+`green-black-bone` (ground #161c1a, surface #1f2725, ink #e3e2da, muted #8e948d, accent #9fc7b8: a dark, low-glare
+ground that leaves the pixel art the brightest thing on screen), type Host Grotesk + JetBrains Mono bundled with the
+build (no network needed on a LAN), radius `sharp` (4/6/8). Motion tokens from the skill: hover 150 ms in, 120 ms
+out, press 90 ms, ease `cubic-bezier(.2,.8,.2,1)`; buttons step up 1px on hover and sink with scale .985 on press
+(fine pointers only); a 2px focus ring in the accent, 2px off the control; one filled button per view. The skill's
+marketing-page rules (hero, one section per screen, photographs, page gate) do not apply to an editor.
 
 ## Behaviour
 
@@ -40,6 +55,7 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | change a widget | `set_input` with the literal; reset → `unset_input` |
 | rename / label | `rename_node` / `set_label` |
 | add from search | `add_node {type, pos}` (server picks the id) |
+| Duplicate (node menu) | `add_node` with the same type, inputs and label, 40 px down and right (server picks the id) |
 | settings | `set_settings` |
 
 - A connection whose output type does not fit the input type ([types.md](types.md#fit-rules)) is refused in the UI
@@ -69,6 +85,11 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-07 | `thumbUrl` | contains the encoded path, node and key |
 | WEB-08 | `bun run build` | succeeds; `web/dist/index.html` exists |
 | WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `slopc edit` adds a node that appears without a reload |
-| WEB-10 | headless Chromium: connect, change a number widget | the file on disk has the new ref and value |
+| WEB-10 | headless Chromium: connect, change a number widget (in the popup) | the file on disk has the new ref and value |
 | WEB-12 | headless Chromium: drag a node slowly over 30 mouse moves | the node follows the cursor on every move; no project reload during the drag; exactly one `move_node` after the drop (regression: the node flickered back to its old position) |
-| WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |
+| WEB-13 | `duplicateOp` on a node with inputs, label and pos | `add_node` with the same type, inputs, label; pos + 40 |
+| WEB-14 | headless Chromium: node menu Delete / Duplicate; edge menu Disconnect; canvas menu add at the cursor | node gone from the file / a copy added / input unset / a node near the cursor's flow position |
+| WEB-15 | headless Chromium: click a node | a popup beside it with its inputs; Esc closes it |
+| WEB-16 | headless Chromium: nothing selected / node selected / toggle | panel collapsed / open / toggles |
+| WEB-17 | headless Chromium: the editor | no `.svelte-flow__attribution` element |
+| WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` (in the popup) | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |
