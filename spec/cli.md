@@ -69,7 +69,7 @@ Prints the JSON Schema (draft 2020-12) of the project file. The schema covers st
 | CLI-07 | `slopc validate` on a valid file | exit 0; stdout `ok` |
 | CLI-08 | `slopc validate --json` on the PF-25 file | exit 1; stdout `{"ok":false,"errors":[...3 errors]}` |
 | CLI-09 | `slopc validate` on a missing file | exit 3 |
-| CLI-10 | `slopc show` on PF-02 | lists `bg` and `out` with `image=@bg` |
+| CLI-10 | `slopc show` on PF-02 | lists `bg` and `out` with `surface_in=@bg` |
 | CLI-11 | `slopc render examples/hello.slopc.json -o hello.png` | exit 0; PNG equals golden `hello.png` |
 | CLI-12 | render a project with two `output` nodes, no `--node` | exit 1; `ambiguous_target` |
 | CLI-13 | render a project with no `output` node, `--node bg` | exit 0; PNG of `bg` |

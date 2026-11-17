@@ -18,6 +18,10 @@ Confirmed with the user on 2026-11-17.
 | State | the project file on disk is the source of truth; the server watches it and pushes changes to the web UI |
 | MCP transport | stdio, and Streamable HTTP at `/mcp` on the server |
 | Deployment | reachable over LAN or remotely, protected by a token |
+| Upstream fidelity | ambiguities follow Pixel Composer; deviations are listed in `spec/nodes.md` |
+| Random numbers | integer PCG hash, not upstream `fract(sin)`, so golden tests are exact on every GPU |
+| Output node | `output` node kept (not upstream); `slopc render -o` picks the path |
+| Blend placement | upstream: foreground centred on `position` (default centre); replaces the top-left decision |
 | MVP scope | 2D still images, about 30 nodes, PNG output. The evaluator takes a frame number; keyframes and a timeline come later |
 | Language | English for docs, code, comments and commits |
 
@@ -55,27 +59,11 @@ CLI        MCP (stdio)     MCP (HTTP /mcp)    web UI
 
 ### Project file
 
-A sketch. The format is fixed in M1.
-
-```json
-{
-  "slopc": 1,
-  "settings": { "width": 32, "height": 32, "frames": 1, "fps": 12 },
-  "nodes": {
-    "noise": { "type": "noise", "inputs": { "scale": 4, "seed": 7 } },
-    "pal":   { "type": "palette", "inputs": { "colors": ["#1a1c2c", "#5d275d", "#b13e53"] } },
-    "quant": { "type": "quantize", "inputs": { "image": { "ref": "noise" }, "palette": { "ref": "pal" } } },
-    "out":   { "type": "output", "inputs": { "image": { "ref": "quant" } }, "pos": [480, 0] }
-  }
-}
-```
-
-Every input holds either a literal value or a `ref` to another node's output (`"node"` or `"node.output"`).
-`pos` is optional: nodes without one are laid out automatically.
+Specified in [spec/project-file.md](spec/project-file.md).
 
 ### Nodes for the MVP
 
-A proposal of 33 nodes.
+A proposal of 33 nodes. Working names: the M3 spec maps each to its upstream node and takes upstream's name, inputs and defaults.
 
 | Category | Nodes |
 |---|---|
@@ -164,12 +152,16 @@ User feedback as a checklist. Points that need a decision are indented under the
 - [x] Add rule: use test cases actively
   - [x] Each spec section lists numbered test cases; tests are written from them before the code (TDD)
 - [x] Write the M1 spec (`spec/`)
-  - [x] Generators have an optional `size` input; absent means the project's size
+  - [x] Generators have an optional `dimension` input (upstream name); absent means the project's size
   - [x] Unknown keys are errors; nodes may have an optional `label` string
-  - [x] `blend` puts the foreground at the top-left, with no position input
+  - [x] ~~`blend` puts the foreground at the top-left, with no position input~~ (replaced: follows upstream `position`)
   - [x] `transform` keeps the input size; content moved outside is clipped
   - [x] `slopc new` creates a project with no nodes
   - [x] Limits: 4096 px per side, 2048² px per surface, 1000 nodes
 - [x] From now on, resolve ambiguities by following the original project (Pixel Composer) first
   - [x] Re-check the M1 spec and the unasked "Assumptions" against upstream now; keep user-confirmed decisions
+  - [x] Noise random: keep the integer hash (deviation from upstream `fract(sin)`)
+  - [x] Keep the `output` node (upstream has `Export` instead)
+  - [x] Blend: follow upstream `position` (centred), replacing the earlier top-left decision
+  - [x] Applied without asking (upstream answers them): upstream input/output names in snake case, `solid` default white, `noise` is white noise with colour modes (value noise moves to a later Perlin-like node), `transform` uses `position`/`anchor` with counter-clockwise rotation and `alpha`, blend modes and formulas ported from `sh_blend_*`, optional `foreground`, `preserve_alpha`, size input named `dimension`
 - [x] Ask questions in Korean

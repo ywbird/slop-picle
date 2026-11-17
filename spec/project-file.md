@@ -11,7 +11,7 @@ the CLI, MCP and the server read it from disk and write it back.
   "settings": { "width": 32, "height": 32, "frames": 1, "fps": 12 },
   "nodes": {
     "bg":  { "type": "solid", "inputs": { "color": "#1a1c2c" } },
-    "out": { "type": "output", "inputs": { "image": { "ref": "bg" } }, "pos": [240, 0] }
+    "out": { "type": "output", "inputs": { "surface_in": { "ref": "bg" } }, "pos": [240, 0] }
   }
 }
 ```
@@ -54,7 +54,7 @@ An input holds either a **literal** of the input's type (see [types.md](types.md
 
 ```json
 { "ref": "noise" }
-{ "ref": "noise.value" }
+{ "ref": "noise.surface_out" }
 ```
 
 - `"node"` refers to the node's first output, `"node.output"` to a named output.
@@ -68,7 +68,7 @@ Load = parse, then validate. Validation collects **all** errors; it does not sto
 Each error is:
 
 ```json
-{ "code": "dangling_ref", "node": "quant", "input": "image", "message": "node 'quant' input 'image' refers to missing node 'nose'" }
+{ "code": "dangling_ref", "node": "quant", "input": "surface_in", "message": "node 'quant' input 'surface_in' refers to missing node 'nose'" }
 ```
 
 `node` and `input` are present when the error belongs to them. `message` is for people; `code` is stable.
@@ -88,7 +88,7 @@ Each error is:
 | `dangling_ref` | a ref to a node id that does not exist |
 | `unknown_output` | a ref to an output name the node does not have |
 | `cycle` | refs form a cycle; reported once per node in the cycle |
-| `too_large` | more than 1000 nodes, or `width × height` (settings or a `size` input) over the cap |
+| `too_large` | more than 1000 nodes, or `width × height` (settings or a `dimension` input) over the cap |
 
 A `parse_error` or `unsupported_version` stops validation, since nothing else can be checked.
 An `unknown_type` node is skipped for input checks; refs to it are still checked for existence.
@@ -109,7 +109,7 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 | ID | Given | Expected |
 |---|---|---|
 | PF-01 | `{"slopc":1}` | valid; settings 32×32, 1 frame, 12 fps; no nodes |
-| PF-02 | the example in this file | valid; 2 nodes; `out.image` is a ref to `bg` output `out` (first output) |
+| PF-02 | the example in this file | valid; 2 nodes; `out.surface_in` is a ref to `bg` output `surface_out` (first output) |
 | PF-03 | `not json` | one error `parse_error` |
 | PF-04 | `{"slopc":2}` | one error `unsupported_version` |
 | PF-05 | `{}` | one error `unsupported_version` |
@@ -118,15 +118,15 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 | PF-08 | node id `Noise` and node id `1a` | two `invalid_id` errors |
 | PF-09 | node `type: "nope"` | `unknown_type`, no input errors for that node |
 | PF-10 | `solid` with input `colour` | `unknown_input` with `node`, `input` |
-| PF-11 | `output` without `image` | `missing_input` |
+| PF-11 | `output` without `surface_in` | `missing_input` |
 | PF-12 | `solid.color` = `5` | `type_mismatch` |
-| PF-13 | `output.image` = `"#ffffff"` (literal on a surface) | `type_mismatch` |
-| PF-14 | `transform.offset` = ref to a `solid` (surface → vec2) | `type_mismatch` |
+| PF-13 | `output.surface_in` = `"#ffffff"` (literal on a surface) | `type_mismatch` |
+| PF-14 | `transform.position` = ref to a `solid` (surface → vec2) | `type_mismatch` |
 | PF-15 | `blend.opacity` = `1.5` | `out_of_range` |
 | PF-16 | `settings.width` = `0`, and `5000` | `out_of_range` each |
 | PF-17 | `settings` 4096×4096 | `too_large` |
 | PF-18 | 1001 nodes | `too_large` |
-| PF-19 | `blend.mode` = `"darken"` | `invalid_enum` |
+| PF-19 | `blend.blend_mode` = `"darken"` | `invalid_enum` |
 | PF-20 | ref `{"ref":"nose"}` | `dangling_ref` |
 | PF-21 | ref `{"ref":"bg.alpha"}` on a `solid` | `unknown_output` |
 | PF-22 | `a` refs `b`, `b` refs `a` | `cycle` for `a` and for `b` |
