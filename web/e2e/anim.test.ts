@@ -101,3 +101,18 @@ test("WEB-26 key buttons set and show keys", async () => {
   await page.waitForFunction(() => document.querySelector(".timeline .frame")?.textContent === "1");
   await page.waitForFunction(() => ![...document.querySelectorAll(".popup .row")].find((r) => r.textContent?.includes("color"))?.querySelector("button.key")?.classList.contains("on"));
 }, 30000);
+
+test("WEB-28 stepping frames neither reopens events nor reloads twice", async () => {
+  const urls: string[] = [];
+  const onReq = (r: { url(): string }) => urls.push(r.url());
+  page.on("request", onReq);
+  for (let i = 0; i < 5; i++) {
+    const want = String((Number(await frameText()) + 1) % 4);
+    await page.locator('.timeline button[aria-label="next frame"]').click();
+    await page.waitForFunction((w) => document.querySelector(".timeline .frame")?.textContent === w, want);
+  }
+  await Bun.sleep(300);
+  page.off("request", onReq);
+  expect(urls.filter((u) => u.includes("/api/events")).length).toBe(0);
+  expect(urls.filter((u) => u.includes("/api/project")).length).toBe(5);
+}, 30000);
