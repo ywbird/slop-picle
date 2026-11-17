@@ -20,7 +20,7 @@ export type NodeDef = {
 export type Catalog = NodeDef[];
 export type FileNode = { type: string; label?: string; inputs?: Record<string, unknown>; pos?: [number, number] };
 export type ProjectFile = {
-  slopc: 1;
+  picle: 1;
   settings?: { width?: number; height?: number; frames?: number; fps?: number };
   nodes?: Record<string, FileNode>;
 };
@@ -37,7 +37,7 @@ export type NodeData = {
   errors: string[];
   thumb: string | null;
 };
-export type FlowNode = { id: string; type: "slopc"; position: XY; data: NodeData };
+export type FlowNode = { id: string; type: "picle"; position: XY; data: NodeData };
 export type FlowEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string };
 
 export function parseRef(v: unknown): { node: string; output: string | null } | null {
@@ -125,7 +125,7 @@ export function toFlow(
     const surfaceOut = def?.outputs[0]?.type === "surface";
     nodes.push({
       id,
-      type: "slopc",
+      type: "picle",
       position: pos[id],
       data: {
         id,

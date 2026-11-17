@@ -38,7 +38,7 @@ pub const ENTRY: &str = "
 ";
 
 impl Gpu {
-    /// The process-wide GPU, opened on first use. `SLOPC_ADAPTER` picks an adapter by name substring.
+    /// The process-wide GPU, opened on first use. `PICLE_ADAPTER` picks an adapter by name substring.
     pub fn get() -> Result<&'static Gpu, String> {
         GPU.get_or_init(open).as_ref().map_err(Clone::clone)
     }
@@ -203,7 +203,7 @@ impl Gpu {
 fn open() -> Result<Gpu, String> {
     let backends = wgpu::Backends::VULKAN | wgpu::Backends::METAL | wgpu::Backends::DX12;
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends, ..wgpu::InstanceDescriptor::new_without_display_handle() });
-    let adapter = match std::env::var("SLOPC_ADAPTER") {
+    let adapter = match std::env::var("PICLE_ADAPTER") {
         Ok(want) => pollster::block_on(instance.enumerate_adapters(backends))
             .into_iter()
             .find(|a| a.get_info().name.contains(&want))

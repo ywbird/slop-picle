@@ -1,4 +1,4 @@
-//! `slopc` command line (spec/cli.md).
+//! `picle` command line (spec/cli.md).
 
 use crate::catalog;
 use crate::eval::Evaluator;
@@ -14,7 +14,7 @@ pub const EXIT_IO: i32 = 3;
 pub const EXIT_GPU: i32 = 4;
 
 #[derive(Parser)]
-#[command(name = "slopc", version, about = "Node-based procedural pixel-art compositor")]
+#[command(name = "picle", version, about = "Node-based procedural pixel-art compositor")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -97,7 +97,7 @@ enum Cmd {
         host: String,
         #[arg(long, default_value_t = 7420)]
         port: u16,
-        /// Access token (default: $SLOPC_TOKEN, else random).
+        /// Access token (default: $PICLE_TOKEN, else random).
         #[arg(long)]
         token: Option<String>,
     },
@@ -118,14 +118,14 @@ pub fn main() -> i32 {
         Cmd::Mcp { root } => match crate::mcp::run_stdio(&root) {
             Ok(()) => 0,
             Err(e) => {
-                eprintln!("slopc mcp: {e}");
+                eprintln!("picle mcp: {e}");
                 EXIT_IO
             }
         },
         Cmd::Serve { root, host, port, token } => match crate::server::run(crate::server::Options { root, host, port, token }) {
             Ok(()) => 0,
             Err(e) => {
-                eprintln!("slopc serve: {e}");
+                eprintln!("picle serve: {e}");
                 EXIT_IO
             }
         },
@@ -161,8 +161,8 @@ pub fn exit_code(e: &Error) -> i32 {
 }
 
 fn new(file: &Path, width: u32, height: u32, json: bool) -> i32 {
-    if !file.to_string_lossy().ends_with(".slopc.json") {
-        eprintln!("error: project files must end in .slopc.json");
+    if !file.to_string_lossy().ends_with(".picle.json") {
+        eprintln!("error: project files must end in .picle.json");
         return EXIT_USAGE;
     }
     let mut p = Project::default();

@@ -130,14 +130,14 @@ fn unknown_key(key: &str, node: Option<&str>, input: Option<&str>) -> Error {
 pub fn parse(text: &str) -> Result<(Project, Vec<Error>), Vec<Error>> {
     let root: Json = serde_json::from_str(text).map_err(|e| parse_err(format!("invalid JSON: {e}")))?;
     let obj = root.as_object().ok_or_else(|| parse_err("the project must be a JSON object"))?;
-    if obj.get("slopc").and_then(Json::as_i64) != Some(1) || obj.get("slopc").is_some_and(|v| v.is_f64()) {
-        return Err(vec![Error::new("unsupported_version", "\"slopc\" must be 1")]);
+    if obj.get("picle").and_then(Json::as_i64) != Some(1) || obj.get("picle").is_some_and(|v| v.is_f64()) {
+        return Err(vec![Error::new("unsupported_version", "\"picle\" must be 1")]);
     }
     let mut errors = vec![];
     let mut p = Project::default();
     for (k, v) in obj {
         match k.as_str() {
-            "slopc" => {}
+            "picle" => {}
             "settings" => {
                 let s = v.as_object().ok_or_else(|| parse_err("\"settings\" must be an object"))?;
                 for (sk, sv) in s {
@@ -452,7 +452,7 @@ impl Project {
             })
             .collect();
         json!({
-            "slopc": 1,
+            "picle": 1,
             "settings": { "width": s.width, "height": s.height, "frames": s.frames, "fps": s.fps },
             "nodes": nodes,
         })

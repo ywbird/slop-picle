@@ -35,10 +35,10 @@ pub fn resolve(root: &Path, rel: &str) -> Result<PathBuf, Error> {
     Ok(path)
 }
 
-/// Resolve a project path: inside the root and ending in `.slopc.json`.
+/// Resolve a project path: inside the root and ending in `.picle.json`.
 pub fn project(root: &Path, rel: &str) -> Result<PathBuf, Error> {
-    if !rel.ends_with(".slopc.json") {
-        return Err(Error::new("bad_path", format!("'{rel}' must end in .slopc.json")));
+    if !rel.ends_with(".picle.json") {
+        return Err(Error::new("bad_path", format!("'{rel}' must end in .picle.json")));
     }
     resolve(root, rel)
 }
@@ -54,7 +54,7 @@ pub fn list_projects(root: &Path) -> Vec<String> {
                 if !name.starts_with('.') && name != "node_modules" && name != "target" {
                     walk(root, &e.path(), out);
                 }
-            } else if name.ends_with(".slopc.json") {
+            } else if name.ends_with(".picle.json") {
                 out.push(e.path().strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/"));
             }
         }

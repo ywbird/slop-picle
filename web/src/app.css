@@ -88,5 +88,5 @@ a { color: var(--ink); text-underline-offset: 3px; }
   --xy-node-border: none;
   --xy-node-boxshadow-selected: none;
 }
-.svelte-flow__node-slopc { padding: 0; }
+.svelte-flow__node-picle { padding: 0; }
 .svelte-flow__controls { border-radius: var(--r-md); overflow: hidden; box-shadow: none; border: 1px solid var(--line); }

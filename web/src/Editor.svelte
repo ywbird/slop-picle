@@ -27,7 +27,7 @@
   }
   let toast = $state("");
   let missing = $state(false);
-  const nodeTypes = { slopc: SlopNode };
+  const nodeTypes = { picle: SlopNode };
   let popup: { x: number; y: number } | null = $state(null);
   let imagePopup: { id: string; x: number; y: number } | null = $state(null);
   let menu: { x: number; y: number; items?: MenuItem[]; add?: boolean } | null = $state(null);
@@ -235,7 +235,7 @@
 {:else}
   <div class="editor">
     <header>
-      <a href="#/">slopc</a>
+      <a href="#/">picle</a>
       <span class="path">{path}</span>
       {#if view}<span class="muted">{view.project.settings?.width ?? 32}×{view.project.settings?.height ?? 32}</span>{/if}
       <button class="export-open" aria-expanded={exporting} disabled={!view} onclick={() => (exporting = !exporting)}>Export</button>

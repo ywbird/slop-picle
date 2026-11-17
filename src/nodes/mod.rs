@@ -534,7 +534,7 @@ fn image(ctx: &mut Ctx, v: &[Value]) -> R {
 
 // ---------- output ----------
 
-const OUTPUT_IN: &[I] = &[I::required("surface_in", T::Surface, "What `slopc render` writes.")];
+const OUTPUT_IN: &[I] = &[I::required("surface_in", T::Surface, "What `picle render` writes.")];
 
 fn output(_: &mut Ctx, v: &[Value]) -> R {
     Ok(vec![v[0].clone()])
@@ -567,7 +567,7 @@ const fn remap_node(ty: &'static str, description: &'static str, inputs: &'stati
 
 pub static ALL: &[NodeDef] = &[
     NodeDef { ty: "image", category: "io", description: "Read a PNG file.", inputs: IMAGE_IN, outputs: SURFACE_OUT, run: image, reads_frame: false, remap: None },
-    NodeDef { ty: "output", category: "io", description: "Mark the image `slopc render` writes.", inputs: OUTPUT_IN, outputs: SURFACE_OUT, run: output, reads_frame: false, remap: None },
+    NodeDef { ty: "output", category: "io", description: "Mark the image `picle render` writes.", inputs: OUTPUT_IN, outputs: SURFACE_OUT, run: output, reads_frame: false, remap: None },
     NodeDef { ty: "solid", category: "generate", description: "Fill a surface with one colour.", inputs: SOLID_IN, outputs: SURFACE_OUT, run: solid, reads_frame: false, remap: None },
     NodeDef { ty: "noise", category: "generate", description: "White noise, one random value per pixel.", inputs: NOISE_IN, outputs: SURFACE_OUT, run: noise, reads_frame: false, remap: None },
     NodeDef {

@@ -15,7 +15,7 @@ use serde_json::{Value as Json, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-const INSTRUCTIONS: &str = "slopc builds pixel art from a node graph stored in *.slopc.json files.
+const INSTRUCTIONS: &str = "picle builds pixel art from a node graph stored in *.picle.json files.
 Workflow: list_node_types (then list_node_types {type} for inputs) -> create_project -> edit_project with ops -> render to look at the result.
 Ops: add_node {type, id?, inputs?}, set_input {id, input, value}, remove_node, rename_node, move_node, unset_input, set_label, set_settings.
 Connect nodes with an input value {\"ref\": \"node\"} or {\"ref\": \"node.output\"}. An `output` node marks what render shows.
@@ -24,7 +24,7 @@ Animation: settings.frames/fps; any non-surface input can hold {\"anim\": [{\"ti
 Export: export {path, out} writes files inside the root: out \"exports/walk.gif\" (or .apng) is the whole animation, \"exports/walk_%3f.png\" one PNG per frame, \"exports/walk.png\" one frame; options range [first, last] from 1, step, scale, fps. render_sprite_sheet lays the frames out in one image.";
 
 #[derive(Clone)]
-pub struct Slopc {
+pub struct Picle {
     root: PathBuf,
     evaluator: Arc<Mutex<Evaluator>>,
     tool_router: ToolRouter<Self>,
@@ -32,13 +32,13 @@ pub struct Slopc {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct PathArg {
-    /// Project path relative to the root, ending in .slopc.json.
+    /// Project path relative to the root, ending in .picle.json.
     pub path: String,
 }
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct CreateArgs {
-    /// Project path relative to the root, ending in .slopc.json.
+    /// Project path relative to the root, ending in .picle.json.
     pub path: String,
     /// Canvas width in pixels (default 32).
     pub width: Option<u32>,
@@ -149,22 +149,22 @@ pub fn create_project(root: &Path, rel: &str, width: u32, height: u32) -> Result
     project::save(&path, &p).map_err(|e| io(&e))
 }
 
-impl Slopc {
+impl Picle {
     pub fn new(root: &Path) -> std::io::Result<Self> {
         let root = root.canonicalize()?;
         let mut ev = Evaluator::new();
         ev.root = Some(root.clone());
-        Ok(Slopc { root, evaluator: Arc::new(Mutex::new(ev)), tool_router: Self::tool_router() })
+        Ok(Picle { root, evaluator: Arc::new(Mutex::new(ev)), tool_router: Self::tool_router() })
     }
 
     pub fn with_evaluator(root: PathBuf, evaluator: Arc<Mutex<Evaluator>>) -> Self {
-        Slopc { root, evaluator, tool_router: Self::tool_router() }
+        Picle { root, evaluator, tool_router: Self::tool_router() }
     }
 }
 
 #[tool_router]
-impl Slopc {
-    #[tool(description = "List *.slopc.json projects under the root.")]
+impl Picle {
+    #[tool(description = "List *.picle.json projects under the root.")]
     fn list_projects(&self) -> CallToolResult {
         ok(json!({ "projects": sandbox::list_projects(&self.root) }))
     }
@@ -266,26 +266,26 @@ impl Slopc {
 }
 
 #[tool_handler(router = self.tool_router)]
-impl ServerHandler for Slopc {
+impl ServerHandler for Picle {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build()).with_instructions(INSTRUCTIONS)
     }
 }
 
-/// The tools over Streamable HTTP for `slopc serve` (auth is the server's job).
+/// The tools over Streamable HTTP for `picle serve` (auth is the server's job).
 pub fn http_service(
     root: PathBuf,
     evaluator: Arc<Mutex<Evaluator>>,
-) -> rmcp::transport::streamable_http_server::StreamableHttpService<Slopc, rmcp::transport::streamable_http_server::session::local::LocalSessionManager> {
+) -> rmcp::transport::streamable_http_server::StreamableHttpService<Picle, rmcp::transport::streamable_http_server::session::local::LocalSessionManager> {
     use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
     // Token auth guards against DNS rebinding, so LAN and remote Host headers are allowed.
     let config = StreamableHttpServerConfig::default().disable_allowed_hosts();
-    StreamableHttpService::new(move || Ok(Slopc::with_evaluator(root.clone(), evaluator.clone())), Default::default(), config)
+    StreamableHttpService::new(move || Ok(Picle::with_evaluator(root.clone(), evaluator.clone())), Default::default(), config)
 }
 
-/// `slopc mcp`: serve on stdio until the client disconnects.
+/// `picle mcp`: serve on stdio until the client disconnects.
 pub fn run_stdio(root: &Path) -> Result<(), String> {
-    let server = Slopc::new(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    let server = Picle::new(root).map_err(|e| format!("{}: {e}", root.display()))?;
     let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     rt.block_on(async {
         let service = server.serve(rmcp::transport::stdio()).await.map_err(|e| e.to_string())?;

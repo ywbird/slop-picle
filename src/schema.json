@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://slopc.local/project.schema.json",
-  "title": "slopc project",
-  "description": "Structure of a *.slopc.json file. Input names per node type are checked by `slopc validate`, not by this schema.",
+  "$id": "https://picle.local/project.schema.json",
+  "title": "picle project",
+  "description": "Structure of a *.picle.json file. Input names per node type are checked by `picle validate`, not by this schema.",
   "type": "object",
-  "required": ["slopc"],
+  "required": ["picle"],
   "additionalProperties": false,
   "properties": {
-    "slopc": { "const": 1 },
+    "picle": { "const": 1 },
     "settings": {
       "type": "object",
       "additionalProperties": false,

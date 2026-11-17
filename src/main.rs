@@ -1,3 +1,3 @@
 fn main() {
-    std::process::exit(slopc::cli::main());
+    std::process::exit(picle::cli::main());
 }

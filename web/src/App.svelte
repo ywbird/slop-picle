@@ -39,8 +39,8 @@
 
 {#if needLogin}
   <form class="login" onsubmit={login}>
-    <h1>slopc</h1>
-    <p class="muted">Paste the token printed by <code>slopc serve</code>.</p>
+    <h1>picle</h1>
+    <p class="muted">Paste the token printed by <code>picle serve</code>.</p>
     <input type="password" placeholder="token" bind:value={token} aria-label="token" />
     <button type="submit" class="primary">Open editor</button>
     {#if loginError}<p class="error">{loginError}</p>{/if}

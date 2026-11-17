@@ -14,7 +14,7 @@
   }: { path: string; view: ProjectView; catalog: Catalog; selected: string | null; frame: number; close: () => void } = $props();
 
   const formats = $derived.by(() => {
-    const name = path.split("/").pop()!.replace(/\.slopc\.json$/, "");
+    const name = path.split("/").pop()!.replace(/\.picle\.json$/, "");
     return [
       { id: "gif", label: "GIF", out: `exports/${name}.gif` },
       { id: "apng", label: "APNG", out: `exports/${name}.apng` },

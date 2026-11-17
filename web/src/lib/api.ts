@@ -1,4 +1,4 @@
-// Fetch wrapper for the slopc API (cookie auth; errors keep the server's shape).
+// Fetch wrapper for the picle API (cookie auth; errors keep the server's shape).
 import type { ApiError, Catalog, Op, ProjectFile } from "./graph";
 
 export class ApiFailure extends Error {

@@ -2,7 +2,7 @@
   import { api, ApiFailure } from "./lib/api";
 
   let projects: string[] = $state([]);
-  let path = $state("untitled.slopc.json");
+  let path = $state("untitled.picle.json");
   let width = $state(32);
   let height = $state(32);
   let error = $state("");
@@ -25,7 +25,7 @@
 </script>
 
 <main>
-  <h1>slopc</h1>
+  <h1>picle</h1>
   <h2>Projects</h2>
   {#if projects.length === 0}<p class="muted">No projects under the root yet.</p>{/if}
   <ul>

@@ -1,5 +1,5 @@
 {
-  "slopc": 1,
+  "picle": 1,
   "settings": { "width": 48, "height": 32, "frames": 1, "fps": 12 },
   "nodes": {
     "sky": {

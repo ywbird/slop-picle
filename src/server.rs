@@ -1,4 +1,4 @@
-//! `slopc serve`: web UI, JSON API, events and MCP over HTTP (spec/server.md).
+//! `picle serve`: web UI, JSON API, events and MCP over HTTP (spec/server.md).
 
 use crate::catalog;
 use crate::cli::render_surface;
@@ -90,7 +90,7 @@ fn same(a: &str, b: &str) -> bool {
 
 fn cookie_token(headers: &HeaderMap) -> Option<String> {
     headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok()).flat_map(|v| v.split(';')).find_map(|c| {
-        c.trim().strip_prefix("slopc_token=").map(str::to_string)
+        c.trim().strip_prefix("picle_token=").map(str::to_string)
     })
 }
 
@@ -100,7 +100,7 @@ fn authorised(st: &AppState, headers: &HeaderMap) -> bool {
 }
 
 fn set_cookie(token: &str) -> String {
-    format!("slopc_token={token}; HttpOnly; SameSite=Strict; Path=/")
+    format!("picle_token={token}; HttpOnly; SameSite=Strict; Path=/")
 }
 
 async fn require_token(State(st): State<AppState>, req: Request, next: Next) -> Response {
@@ -333,7 +333,7 @@ async fn events_h(State(st): State<AppState>, Query(q): Query<FrameQuery>) -> Re
     Ok(Sse::new(s).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)).text("ping")))
 }
 
-const NO_UI: &str = "<!doctype html><title>slopc</title><p>This slopc binary was built without the web UI. Build it with <code>cd web && bun run build</code>, then rebuild slopc.</p>";
+const NO_UI: &str = "<!doctype html><title>picle</title><p>This picle binary was built without the web UI. Build it with <code>cd web && bun run build</code>, then rebuild picle.</p>";
 
 async fn static_h(State(st): State<AppState>, uri: Uri) -> Response {
     if uri.path().starts_with("/api/") {
@@ -395,7 +395,7 @@ fn watch(root: &Path, tx: broadcast::Sender<PathBuf>) -> notify::Result<notify::
 
 pub fn run(opts: Options) -> Result<(), String> {
     let root = opts.root.canonicalize().map_err(|e| format!("{}: {e}", opts.root.display()))?;
-    let token = opts.token.or_else(|| std::env::var("SLOPC_TOKEN").ok().filter(|t| !t.is_empty())).unwrap_or_else(random_token);
+    let token = opts.token.or_else(|| std::env::var("PICLE_TOKEN").ok().filter(|t| !t.is_empty())).unwrap_or_else(random_token);
     let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     rt.block_on(async move {
         let (tx, _) = broadcast::channel(256);
@@ -405,7 +405,7 @@ pub fn run(opts: Options) -> Result<(), String> {
         let st = AppState { root, token: Arc::new(token.clone()), evaluator: Arc::new(Mutex::new(ev)), changes: tx };
         let listener = tokio::net::TcpListener::bind((opts.host.as_str(), opts.port)).await.map_err(|e| format!("cannot listen: {e}"))?;
         let addr = listener.local_addr().map_err(|e| e.to_string())?;
-        println!("slopc serve: http://{addr}/?token={token}");
+        println!("picle serve: http://{addr}/?token={token}");
         use std::io::Write;
         std::io::stdout().flush().ok();
         axum::serve(listener, router(st)).await.map_err(|e| e.to_string())
