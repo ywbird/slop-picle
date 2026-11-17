@@ -2,7 +2,7 @@
 
 use crate::catalog::{self, NodeDef};
 use crate::surface;
-use crate::types::{self, Value, fits};
+use crate::types::{self, Type, Value, fits};
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::{Map, Number, Value as Json, json};
@@ -239,6 +239,21 @@ fn resolve(p: &Project, r: &str) -> Result<Option<(&'static NodeDef, usize)>, (&
     }
 }
 
+/// The type an output carries: an `any` output has the type of its node's first `any` input's source; None when unknown.
+fn output_type(p: &Project, id: &str, def: &'static NodeDef, oi: usize) -> Option<Type> {
+    let (mut id, mut def, mut oi) = (id, def, oi);
+    for _ in 0..=p.nodes.len() {
+        if def.outputs[oi].ty != Type::Any {
+            return Some(def.outputs[oi].ty);
+        }
+        let input = def.inputs.iter().find(|i| i.ty == Type::Any)?;
+        let r = p.nodes[id].inputs.get(input.name)?.get("ref")?.as_str()?;
+        (def, oi) = resolve(p, r).ok().flatten()?;
+        id = split_ref(r).0;
+    }
+    None // a cycle, reported elsewhere
+}
+
 /// Catalog-level validation; collects every error.
 pub fn validate(p: &Project) -> Vec<Error> {
     let mut errors = vec![];
@@ -279,8 +294,9 @@ pub fn validate(p: &Project) -> Vec<Error> {
                     Err((code, m)) => errors.push(Error::at(code, id, Some(name), m)),
                     Ok(None) => {}
                     Ok(Some((src, oi))) => {
-                        let oty = src.outputs[oi].ty;
-                        if !fits(oty, idef.ty) {
+                        let oty = output_type(p, split_ref(r).0, src, oi);
+                        if oty.is_some_and(|oty| !fits(oty, idef.ty)) {
+                            let oty = oty.unwrap();
                             errors.push(Error::at(
                                 "type_mismatch",
                                 id,

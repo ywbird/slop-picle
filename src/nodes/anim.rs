@@ -189,3 +189,68 @@ pub fn anim_loop_frame(v: &[Value], f: i64, total: i64, _: f64) -> Option<i64> {
     let p = (f - start).rem_euclid(range);
     Some(if v[1] == Value::Enum(1) && n % 2 == 1 { start + range - 1 - p } else { start + p })
 }
+
+// ---------- curves and delayed values ----------
+
+/// Upstream `CURVE_DEF_01`: linear from 0 to 1.
+pub const LINEAR_CURVE: &str = r#"{"points":[{"x":0,"y":0,"out":[0.3333333333333333,0.3333333333333333]},{"x":1,"y":1,"in":[-0.3333333333333333,-0.3333333333333333]}]}"#;
+
+pub const ANIM_CURVE_IN: &[I] = &[
+    I::new("curve", T::Curve, D::Json(LINEAR_CURVE), "Curve to evaluate."),
+    I::new("animated", T::Bool, D::Bool(false), "Read the curve at the animation progress instead of progress."),
+    I::new("progress", T::Number, D::Number(0.0), "Where to read the curve, 0 to 1.").range(0.0, 1.0),
+    I::new("minimum", T::Number, D::Number(0.0), "Output where the curve is 0."),
+    I::new("maximum", T::Number, D::Number(1.0), "Output where the curve is 1."),
+];
+
+pub fn anim_curve(ctx: &mut Ctx, v: &[Value]) -> R {
+    let Value::Curve(c) = &v[0] else { unreachable!() };
+    let t = match v[1] {
+        Value::Bool(true) if ctx.frames > 1 => ctx.frame as f64 / (ctx.frames - 1) as f64,
+        Value::Bool(true) => 0.0,
+        _ => v[2].num(),
+    };
+    let (lo, hi) = (v[3].num(), v[4].num());
+    Ok(vec![Value::Number(lo + (hi - lo) * c.eval(t))])
+}
+
+pub const STAGGER_IN: &[I] = &[
+    I::required("surface", T::Surface, "Animation to delay."),
+    I::new("stagger_curve", T::Curve, D::Json(LINEAR_CURVE), "Delay of each element by its place (one element without arrays)."),
+    I::new("delay_step", T::Number, D::Number(1.0), "Elements per delay step."),
+    I::new("delay_frame", T::Number, D::Number(1.0), "Frames of delay per step."),
+    I::new("overflow", T::Enum, D::Enum("hide"), "Outside the animation: empty, the nearest frame, or loop.").options(&["hide", "clamp", "loop"]),
+];
+
+pub fn stagger_frame(v: &[Value], f: i64, total: i64, _: f64) -> Option<i64> {
+    let Value::Curve(c) = &v[1] else { unreachable!() };
+    let n = (1.0 / v[2].num()).floor();
+    let x = if n == 0.0 || !n.is_finite() { f } else { (f as f64 - c.eval(0.0) * v[3].num() * n).round() as i64 };
+    match v[4] {
+        Value::Enum(0) => (0..total).contains(&x).then_some(x),
+        Value::Enum(1) => Some(x.clamp(0, total - 1)),
+        _ => Some(x.rem_euclid(total)),
+    }
+}
+
+pub const DELAY_VALUE_IN: &[I] = &[
+    I::required("value", T::Any, "Value to delay."),
+    I::new("frames", T::Int, D::Int(1), "Delay in frames."),
+    I::new("overflow", T::Enum, D::Enum("hold"), "Before the first frame: hold it, loop, or give default.").options(&["hold", "loop", "value"]),
+    I::new("default", T::Any, D::None, "Value where overflow gives no frame."),
+];
+
+pub fn delay_value_frame(v: &[Value], f: i64, total: i64, _: f64) -> Option<i64> {
+    let x = f - int(&v[1]);
+    match v[2] {
+        Value::Enum(0) => Some(x.clamp(0, total - 1)),
+        // Upstream's truncating remainder: a delay longer than the animation gives `default`.
+        Value::Enum(1) => Some((x + total) % total).filter(|y| *y >= 0),
+        _ => (0..total).contains(&x).then_some(x),
+    }
+}
+
+/// Runs only when the delayed frame does not exist.
+pub fn delay_value_default(_: &mut Ctx, v: &[Value]) -> R {
+    Ok(vec![v[3].clone()])
+}

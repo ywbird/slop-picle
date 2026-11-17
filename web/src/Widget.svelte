@@ -18,6 +18,7 @@
   }
   type Grad = { type?: string; keys: { time: number; color: string }[] };
   let uploadError = $state("");
+  let curveError = $state("");
 
   async function upload(e: Event & { currentTarget: HTMLInputElement }) {
     const f = e.currentTarget.files?.[0];
@@ -101,6 +102,23 @@
     {/each}
     <button onclick={() => change({ ...g, keys: [...g.keys, { time: 1, color: "#ffffff" }] })}>+ key</button>
   </div>
+{:else if def.type === "curve"}
+  <!-- shortcut: curves are edited as JSON; a drawn curve editor would be friendlier. -->
+  <textarea
+    class="curve"
+    rows="3"
+    spellcheck="false"
+    value={JSON.stringify(value)}
+    onchange={(e) => {
+      try {
+        change(JSON.parse(e.currentTarget.value));
+        curveError = "";
+      } catch (err) {
+        curveError = String(err);
+      }
+    }}
+  ></textarea>
+  {#if curveError}<span class="error">{curveError}</span>{/if}
 {:else}
   <span class="muted">{JSON.stringify(value)}</span>
 {/if}
@@ -112,4 +130,5 @@
   input[type="color"] { width: 32px; padding: 0 2px; height: 24px; }
   .upload { cursor: pointer; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
   .upload input { display: none; }
+  .curve { width: 100%; font-family: var(--font-mono); font-size: 11px; color: inherit; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 </style>

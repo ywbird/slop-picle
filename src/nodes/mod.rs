@@ -460,5 +460,17 @@ pub static ALL: &[NodeDef] = &[
     remap_node("rate_remap", "Resample an animation to a lower frame rate.", anim::RATE_REMAP_IN, "surface", anim::rate_remap_frame),
     remap_node("delay", "Delay an animation by some frames.", anim::DELAY_IN, "surface", anim::delay_frame),
     remap_node("anim_loop", "Loop part of an animation.", anim::ANIM_LOOP_IN, "surface", anim::anim_loop_frame),
+    remap_node("stagger", "Delay an animation by a curve over its elements (one element without arrays).", anim::STAGGER_IN, "surface", anim::stagger_frame),
+    NodeDef {
+        ty: "delay_value",
+        category: "animation",
+        description: "Delay any value by some frames.",
+        inputs: anim::DELAY_VALUE_IN,
+        outputs: &[O { name: "value", ty: T::Any }],
+        run: anim::delay_value_default,
+        reads_frame: true,
+        remap: Some(Remap::Frame(anim::delay_value_frame)),
+    },
+    NodeDef { reads_frame: true, category: "animation", ..value_node("anim_curve", "Evaluate a curve at a progress or over the animation.", anim::ANIM_CURVE_IN, &[O { name: "curve", ty: T::Number }], anim::anim_curve) },
     NodeDef { reads_frame: true, ..value_node("counter", "Frame index or animation progress.", value::COUNTER_IN, &[O { name: "value", ty: T::Number }], value::counter) },
 ];

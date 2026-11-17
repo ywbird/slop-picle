@@ -117,6 +117,12 @@ fn hash_value(v: &Value, h: &mut impl Hasher) {
                 (t.to_bits(), c).hash(h);
             }
         }
+        Value::Curve(c) => {
+            (c.step, c.range.map(f64::to_bits), c.shift.to_bits(), c.scale.to_bits()).hash(h);
+            for p in &c.points {
+                p.map(f64::to_bits).hash(h);
+            }
+        }
         Value::Enum(x) => x.hash(h),
         Value::Str(x) | Value::Path(x) => x.hash(h),
         Value::Surface(s) => (s.width, s.height, &s.data).hash(h),
@@ -184,20 +190,26 @@ impl Evaluator {
         let gnode = &run.graph.nodes[id];
         let mut values = Vec::with_capacity(gnode.inputs.len());
         let mut remap_source = None;
-        for (gi, idef) in gnode.inputs.iter().zip(gnode.def.inputs) {
+        for (i, (gi, idef)) in gnode.inputs.iter().zip(gnode.def.inputs).enumerate() {
             values.push(match gi {
                 GInput::Value(v) => v.clone(),
                 GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
                 GInput::Missing => unreachable!("checked by key"),
-                // Remap nodes read their surface at other frames, below.
-                GInput::Ref { node, output } if gnode.def.remap.is_some() && idef.ty == Type::Surface => {
+                // Remap nodes read their first input at other frames, below.
+                GInput::Ref { node, output } if gnode.def.remap.is_some() && i == 0 => {
                     remap_source = Some((node.clone(), output.clone()));
                     Value::None
                 }
                 GInput::Ref { node, output } => {
                     let src = self.node(run, node)?;
-                    let (oi, _) = run.graph.nodes[node.as_str()].def.output(output).unwrap();
-                    coerce(&src[oi], idef)
+                    let (oi, odef) = run.graph.nodes[node.as_str()].def.output(output).unwrap();
+                    let v = coerce(&src[oi], idef);
+                    // An `any` output is only known now (spec/types.md#fit-rules).
+                    if odef.ty == Type::Any && idef.ty != Type::Any && !v.ty().is_some_and(|t| crate::types::fits(t, idef.ty)) {
+                        let got = v.ty().map_or("no value", |t| t.name());
+                        return Err(Error::at("type_mismatch", id, Some(idef.name), format!("got {got} from '{node}', expected {}", idef.ty.name())));
+                    }
+                    v
                 }
             });
         }
@@ -213,6 +225,11 @@ impl Evaluator {
                 Remap::Frame(remap) => {
                     let outputs = match remap(&values, run.frame, run.frames, run.fps) {
                         Some(f) => vec![self.node(&mut run.at(f.clamp(0, run.frames - 1)), &src)?[oi].clone()],
+                        // A value remap (`delay_value`) picks its fallback in `run`.
+                        None if gnode.def.inputs[0].ty != Type::Surface => {
+                            let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources: vec![] };
+                            (gnode.def.run)(&mut ctx, &values).map_err(|e| Error::at("eval_error", id, None, format!("{e:?}")))?
+                        }
                         None => {
                             let s = self.node(run, &src)?[oi].clone();
                             let s = s.surface().expect("surface source");
@@ -324,11 +341,11 @@ fn remap_key(run: &mut Run, id: &str, h: &mut DefaultHasher) -> Result<(), Error
     let mut values = Vec::with_capacity(gnode.inputs.len());
     let mut source = None;
     let mut known = true;
-    for (gi, idef) in gnode.inputs.iter().zip(gnode.def.inputs) {
+    for (i, (gi, idef)) in gnode.inputs.iter().zip(gnode.def.inputs).enumerate() {
         values.push(match gi {
             GInput::Value(v) => v.clone(),
             GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
-            GInput::Ref { node, .. } if idef.ty == Type::Surface => {
+            GInput::Ref { node, .. } if i == 0 => {
                 source = Some(node.clone());
                 Value::None
             }

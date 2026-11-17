@@ -42,7 +42,7 @@ pub fn is_anim(j: &Json) -> bool {
 
 /// Types that may be animated.
 pub fn animatable(t: Type) -> bool {
-    t != Type::Surface
+    t != Type::Surface && t != Type::Any
 }
 
 fn lerpable(t: Type) -> bool {

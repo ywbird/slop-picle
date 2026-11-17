@@ -72,8 +72,8 @@ fn ty_07_catalog_rules() {
                 assert!(j.get("default").is_none(), "{}.{} required with default", def.ty, i.name);
             } else if i.ty == Type::Dimension {
                 assert_eq!(j["default"], Json::Null);
-            } else if i.ty == Type::Surface {
-                assert!(j.get("default").is_none(), "{}.{} optional surface has no default", def.ty, i.name);
+            } else if i.ty == Type::Surface || i.ty == Type::Any {
+                assert!(j.get("default").is_none(), "{}.{} optional surface or any has no default", def.ty, i.name);
             } else {
                 let d = &j["default"];
                 assert!(!d.is_null(), "{}.{} lacks default", def.ty, i.name);

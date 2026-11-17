@@ -96,7 +96,7 @@ fn field_type(t: Type) -> Option<&'static str> {
         Type::Number | Type::Color | Type::Vec2 => Some("vec4<f32>"),
         Type::Int => Some("vec4<i32>"),
         Type::Bool | Type::Enum | Type::Dimension | Type::Padding => Some("vec4<u32>"),
-        Type::Str | Type::Path | Type::Surface | Type::Palette | Type::Gradient => None,
+        Type::Str | Type::Path | Type::Surface | Type::Palette | Type::Gradient | Type::Curve | Type::Any => None,
     }
 }
 
@@ -187,7 +187,7 @@ pub fn uniforms(def: &NodeDef, values: &[Value], out: [u32; 2], frame: i64, extr
             }
             (Type::Color, Value::Color(c)) => push_f(&mut b, c.map(|x| x as f32 / 255.0)),
             (Type::Vec2, Value::Vec2([x, y])) => push_f(&mut b, [*x as f32, *y as f32, 0.0, 0.0]),
-            (Type::Str | Type::Path, _) => {}
+            (Type::Str | Type::Path | Type::Curve | Type::Any, _) => {}
             (t, v) => panic!("input {} of type {t:?} got {v:?}", i.name),
         }
     }

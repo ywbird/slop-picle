@@ -48,9 +48,9 @@ export function parseRef(v: unknown): { node: string; output: string | null } | 
   return i < 0 ? { node: r, output: null } : { node: r.slice(0, i), output: r.slice(i + 1) };
 }
 
-/** Same rule as the server (spec/types.md#fit-rules). */
+/** Same rule as the server (spec/types.md#fit-rules); an `any` output's real type is checked by the server. */
 export function fits(out: string, input: string): boolean {
-  return out === input || (out === "int" && input === "number");
+  return input === "any" || out === "any" || out === input || (out === "int" && input === "number");
 }
 
 export function getDef(catalog: Catalog, type: string): NodeDef | undefined {

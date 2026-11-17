@@ -89,7 +89,8 @@ Shape (also the output of `slopc nodes --json`):
 ```
 
 - `required: true` inputs have no `default`. All other inputs have a `default` that fits their type and range,
-  except `dimension` inputs, whose `default` is `null`, meaning the project's `width × height`.
+  except `dimension` inputs, whose `default` is `null`, meaning the project's `width × height`, and optional `surface`
+  and `any` inputs, which have none (they only take refs).
 - `min` / `max` appear only on `number` and `int` inputs. `options` appears on `enum` inputs, non-empty.
 - Every node type has at least one output. Input and output names match `^[a-z][a-z0-9_]*$`; input names are unique
   among inputs and output names among outputs (a value node may reuse its input name for its output, as upstream does).

@@ -75,7 +75,7 @@
             {#if ref}
               <span class="ref">← {ref.node}{ref.output ? "." + ref.output : ""}</span>
               <button onclick={() => apply([resetOp(id, input.name)])}>disconnect</button>
-            {:else if input.type === "surface"}
+            {:else if input.type === "surface" || input.type === "any"}
               <span class="muted">connect in the graph</span>
             {:else}
               {@const keys = animOf(raw)}

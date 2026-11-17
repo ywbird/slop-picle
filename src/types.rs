@@ -14,10 +14,13 @@ pub enum Type {
     Padding,
     Palette,
     Gradient,
+    Curve,
     Enum,
     Str,
     Path,
     Surface,
+    /// Upstream `VALUE_TYPE.any`: refs only, carries its source's value.
+    Any,
 }
 
 impl Type {
@@ -32,17 +35,19 @@ impl Type {
             Type::Padding => "padding",
             Type::Palette => "palette",
             Type::Gradient => "gradient",
+            Type::Curve => "curve",
             Type::Enum => "enum",
             Type::Str => "string",
             Type::Path => "path",
             Type::Surface => "surface",
+            Type::Any => "any",
         }
     }
 }
 
 /// Whether an output of type `out` may feed an input of type `input`.
 pub fn fits(out: Type, input: Type) -> bool {
-    out == input || (out == Type::Int && input == Type::Number)
+    input == Type::Any || out == input || (out == Type::Int && input == Type::Number)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -57,6 +62,7 @@ pub enum Value {
     Padding([u32; 4]),
     Palette(Vec<[u8; 4]>),
     Gradient(Gradient),
+    Curve(Curve),
     /// Index into the input's options.
     Enum(usize),
     Str(String),
@@ -92,6 +98,7 @@ impl Value {
             Value::Padding(_) => Type::Padding,
             Value::Palette(_) => Type::Palette,
             Value::Gradient(_) => Type::Gradient,
+            Value::Curve(_) => Type::Curve,
             Value::Enum(_) => Type::Enum,
             Value::Str(_) => Type::Str,
             Value::Path(_) => Type::Path,
@@ -127,6 +134,7 @@ impl Value {
             Value::Padding(v) => json!(v),
             Value::Palette(p) => json!(p.iter().map(|c| format_color(*c)).collect::<Vec<_>>()),
             Value::Gradient(g) => g.to_json(),
+            Value::Curve(c) => c.to_json(),
             Value::Enum(i) => def.and_then(|d| d.options.get(*i)).map_or(json!(i), |s| json!(s)),
             Value::Str(s) | Value::Path(s) => json!(s),
             Value::Surface(s) => json!(format!("<surface {}x{}>", s.width, s.height)),
@@ -155,6 +163,93 @@ impl Gradient {
             "keys": self.keys.iter().map(|(t, c)| json!({ "time": t, "color": format_color(*c) })).collect::<Vec<_>>(),
         })
     }
+}
+
+pub const MAX_CURVE_POINTS: usize = 16;
+
+/// Upstream animation curve (spec/types.md#curve-evaluation). Points are `[in dx, in dy, x, y, out dx, out dy]`, upstream's
+/// layout, sorted by x.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Curve {
+    pub step: bool,
+    pub range: [f64; 2],
+    pub shift: f64,
+    pub scale: f64,
+    pub points: Vec<[f64; 6]>,
+}
+
+impl Curve {
+    pub fn to_json(&self) -> Json {
+        let points: Vec<Json> = self.points.iter().map(|p| json!({ "x": p[2], "y": p[3], "in": [p[0], p[1]], "out": [p[4], p[5]] })).collect();
+        json!({ "type": if self.step { "step" } else { "bezier" }, "range": self.range, "shift": self.shift, "scale": self.scale, "points": points })
+    }
+
+    /// Upstream `eval_curve_x`.
+    pub fn eval(&self, x: f64) -> f64 {
+        let [lo, mut hi] = self.range;
+        if lo == 0.0 && hi == 0.0 {
+            hi = 1.0;
+        }
+        let lerp = |y: f64| lo + (hi - lo) * y;
+        let x = (x / self.scale - self.shift).clamp(0.0, 1.0);
+        let pts = &self.points;
+        if self.step {
+            let mut y = pts[0][3];
+            for p in &pts[..pts.len() - 1] {
+                if x <= p[2] {
+                    return lerp(y);
+                }
+                y = p[3];
+            }
+            return lerp(y);
+        }
+        for w in pts.windows(2) {
+            let ([x0, y0, mut dx0, dy0], [mut dx1, dy1, x1, y1]) = ([w[0][2], w[0][3], w[0][4], w[0][5]], [w[1][0], w[1][1], w[1][2], w[1][3]]);
+            if x < x0 || x > x1 {
+                continue;
+            }
+            if dx0.abs() + dx1.abs() > (x0 - x1).abs() * 2.0 {
+                let r = (x0 - x1).abs() * 2.0 / (dx0.abs() + dx1.abs());
+                dx0 *= r;
+                dx1 *= r;
+            }
+            let rx = x1 - x0;
+            let t = (x - x0) / rx;
+            if dx0 == 0.0 && dy0 == 0.0 && dx1 == 0.0 && dy1 == 0.0 {
+                return lerp(y0 + (y1 - y0) * t);
+            }
+            return lerp(bezier_x(y0, dx0 / rx, y0 + dy0, 1.0 + dx1 / rx, y1 + dy1, y1, t));
+        }
+        lerp(pts[pts.len() - 1][3])
+    }
+}
+
+/// Upstream `eval_curve_segment_x`: y at the Bézier parameter whose x is `x` (Newton, 8 steps).
+fn bezier_x(y0: f64, ax0: f64, ay0: f64, bx1: f64, by1: f64, y1: f64, x: f64) -> f64 {
+    let y_at = |t: f64| {
+        let i = 1.0 - t;
+        y0 * i * i * i + ay0 * 3.0 * i * i * t + by1 * 3.0 * i * t * t + y1 * t * t * t
+    };
+    if x <= 0.0 {
+        return y0;
+    }
+    if x >= 1.0 {
+        return y1;
+    }
+    if y0 == ay0 && y0 == by1 && y0 == y1 {
+        return y0;
+    }
+    let mut t = x;
+    for _ in 0..8 {
+        let u = 1.0 - t;
+        let ft = 3.0 * u * u * t * ax0 + 3.0 * u * t * t * bx1 + t * t * t;
+        if (ft - x).abs() < 0.0001 {
+            return y_at(t);
+        }
+        let dfdt = 3.0 * u * u * ax0 + 6.0 * u * t * (bx1 - ax0) + 3.0 * t * t * (1.0 - bx1);
+        t -= (ft - x) / dfdt;
+    }
+    y_at(t)
 }
 
 pub fn format_color(c: [u8; 4]) -> String {
@@ -291,6 +386,8 @@ pub fn check_literal(def: &InputDef, j: &Json) -> Result<Value, LiteralError> {
         Type::Str => j.as_str().map(|s| Value::Str(s.into())).ok_or_else(bad),
         Type::Path => j.as_str().map(|s| Value::Path(s.into())).ok_or_else(bad),
         Type::Surface => Err(("type_mismatch", format!("input '{}' is a surface and only accepts a ref", def.name))),
+        Type::Any => Err(("type_mismatch", format!("input '{}' accepts any value, only through a ref", def.name))),
+        Type::Curve => check_curve(def, j),
     }
 }
 
@@ -308,4 +405,49 @@ pub fn default_value(def: &InputDef, project: [u32; 2]) -> Option<Value> {
         Default::ProjectSize => Value::Dimension(project),
         Default::Json(text) => check_literal(def, &serde_json::from_str(text).expect("valid default JSON")).expect("valid default"),
     })
+}
+
+fn check_curve(def: &InputDef, j: &Json) -> Result<Value, LiteralError> {
+    let bad = || mismatch(def, j);
+    let o = j.as_object().filter(|o| !o.contains_key("ref")).ok_or_else(bad)?;
+    if let Some(k) = o.keys().find(|k| !["points", "type", "range", "shift", "scale"].contains(&k.as_str())) {
+        return Err(("type_mismatch", format!("input '{}': unknown curve key '{k}'", def.name)));
+    }
+    let pair = |v: Option<&Json>, d: [f64; 2]| -> Result<[f64; 2], LiteralError> {
+        match v {
+            None => Ok(d),
+            Some(v) => {
+                let a = v.as_array().filter(|a| a.len() == 2).ok_or_else(bad)?;
+                Ok([a[0].as_f64().ok_or_else(bad)?, a[1].as_f64().ok_or_else(bad)?])
+            }
+        }
+    };
+    let num = |k: &str, d: f64| o.get(k).map_or(Ok(d), |v| v.as_f64().ok_or_else(bad));
+    let step = match o.get("type").map(|t| t.as_str()) {
+        None | Some(Some("bezier")) => false,
+        Some(Some("step")) => true,
+        Some(Some(t)) => return Err(("invalid_enum", format!("input '{}': curve type '{t}', expected bezier or step", def.name))),
+        Some(None) => return Err(bad()),
+    };
+    let (shift, scale) = (num("shift", 0.0)?, num("scale", 1.0)?);
+    if scale == 0.0 {
+        return Err(("out_of_range", format!("input '{}': curve scale must not be 0", def.name)));
+    }
+    let pts = o.get("points").and_then(Json::as_array).ok_or_else(bad)?;
+    if !(2..=MAX_CURVE_POINTS).contains(&pts.len()) {
+        return Err(("out_of_range", format!("input '{}' needs 2..{MAX_CURVE_POINTS} curve points", def.name)));
+    }
+    let mut points = vec![];
+    for p in pts {
+        let p = p.as_object().ok_or_else(bad)?;
+        let x = p.get("x").and_then(Json::as_f64).ok_or_else(bad)?;
+        let y = p.get("y").and_then(Json::as_f64).ok_or_else(bad)?;
+        if !(0.0..=1.0).contains(&x) {
+            return Err(("out_of_range", format!("input '{}': curve point x {x} outside 0..1", def.name)));
+        }
+        let (i, out) = (pair(p.get("in"), [0.0; 2])?, pair(p.get("out"), [0.0; 2])?);
+        points.push([i[0], i[1], x, y, out[0], out[1]]);
+    }
+    points.sort_by(|a, b| a[2].total_cmp(&b[2]));
+    Ok(Value::Curve(Curve { step, range: pair(o.get("range"), [0.0, 1.0])?, shift, scale, points }))
 }
