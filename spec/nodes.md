@@ -249,7 +249,7 @@ change the background outside the foreground (`multiply` makes it transparent).
 | N-BLEND-19 | 2×2 black background, white foreground, mask white in column 0 and black in column 1 | column 0 white, column 1 black |
 | N-BLEND-20 | N-BLEND-19 with `invert_mask` | column 0 black, column 1 white |
 | N-BLEND-21 | N-BLEND-19 with a fully transparent mask, `invert_mask` | black (strength 0) |
-| N-BLEND-22 | 6×1, mask white in x < 3, black after, `mask_feather 4` | x 0 white; x 2 and 3 strictly between black and white; x 5 below 64 |
+| N-BLEND-22 | 6×7, black background, white foreground, mask white in x < 3 and black after, `mask_feather 4`; row 3 | grey 160, 193, 160, 89, 31, 6 ± 2 (outside the mask counts as 0, as upstream's `sampleMode 1`) |
 | N-BLEND-23 | opaque red 4×4 background, opaque blue 2×2 foreground, `swap` | 2×2 output, all red |
 | N-BLEND-24 | 2×2 background (four colours), 4×4 foreground transparent, `output_dimension foreground` | 4×4; each background pixel covers a 2×2 block |
 | N-BLEND-25 | background 4×2, foreground 2×4, `output_dimension maximum`; `constant` with `constant_dimension [3, 5]`; `mask` without a mask | 4×4; 3×5; 1×1 |
