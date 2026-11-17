@@ -168,7 +168,9 @@ User feedback as a checklist. Points that need a decision are indented under the
     - [x] 3.3 gradient blends: `hsv`, `hsv_inverted`, `oklab`, `cmyk` beside `rgb` and `constant` (upstream editor's six; its hidden `srgb` left out) (commit f704b49)
     - [x] 3.4 curve and any types; anim_curve, stagger (one surface until arrays exist), delay_value; curves edited as JSON in the web UI (commit be6cc4a)
       - [x] Deviation: delay_value evaluates the earlier frame directly instead of upstream's values recorded while playing
-    - [ ] 3.5 shared modifiers: mask, mix and channels on filters, UV map on generators
+    - [x] 3.5 shared modifiers: mask, mix, invert mask, mask feather and channels on the 13 filters that have them upstream; UV map, UV mix and mask on the 6 generators (commit 6315b31)
+      - [x] Deviation: a UV map snaps the remapped position to a pixel
+      - To confirm: upstream's per-input map surfaces (`setMappable`: a surface driving a parameter per pixel, on about 40 inputs) are still left out; they need every affected shader to read a map
     - [ ] 3.6 the remaining inputs, node by node (curve inputs of gradient and blur come with their nodes)
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
