@@ -162,3 +162,13 @@ export function literalOp(id: string, input: string, value: unknown): Op {
 export function resetOp(id: string, input: string): Op {
   return { op: "unset_input", id, input };
 }
+
+/** A copy of a node, 40 px down and right; the server picks the id. */
+export function duplicateOp(n: FileNode): Op {
+  const op: Op = { op: "add_node", type: n.type };
+  if (n.label !== undefined) op.label = n.label;
+  if (n.inputs && Object.keys(n.inputs).length) op.inputs = JSON.parse(JSON.stringify(n.inputs)); // structuredClone throws on Svelte state proxies
+  const [x, y] = n.pos ?? [0, 0];
+  op.pos = [Math.round(x) + 40, Math.round(y) + 40];
+  return op;
+}

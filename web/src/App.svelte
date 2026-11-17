@@ -42,7 +42,7 @@
     <h1>slopc</h1>
     <p class="muted">Paste the token printed by <code>slopc serve</code>.</p>
     <input type="password" placeholder="token" bind:value={token} aria-label="token" />
-    <button type="submit">Open</button>
+    <button type="submit" class="primary">Open editor</button>
     {#if loginError}<p class="error">{loginError}</p>{/if}
   </form>
 {:else if catalog}
@@ -57,5 +57,5 @@
 
 <style>
   .login { max-width: 320px; margin: 15vh auto; display: flex; flex-direction: column; gap: 8px; }
-  h1 { margin: 0; color: var(--accent); }
+  h1 { margin: 0; font-size: 28px; }
 </style>

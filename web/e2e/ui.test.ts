@@ -156,7 +156,7 @@ test("WEB-15 click a node opens its popup beside it; Esc closes", async () => {
 test("WEB-16 side panel collapses without a selection", async () => {
   await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
   const panel = page.locator("aside.panel");
-  await page.waitForFunction(() => document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await page.waitForFunction(() => document.querySelector("aside.panel")!.getBoundingClientRect().width < 60);
   expect((await panel.boundingBox())!.width).toBeLessThan(60);
   await page.locator('.svelte-flow__node[data-id="bg"] .head').click();
   await page.waitForFunction(() => !document.querySelector("aside.panel")?.classList.contains("collapsed"));

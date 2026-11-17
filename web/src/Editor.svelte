@@ -1,10 +1,12 @@
 <script lang="ts">
   import { SvelteFlow, Background, Controls, Panel, type Connection } from "@xyflow/svelte";
   import { api, ApiFailure, type ProjectView } from "./lib/api";
-  import { connectOp, edgeDeleteOp, moveOp, toFlow, type Catalog, type FlowEdge, type FlowNode, type Op } from "./lib/graph";
+  import { connectOp, duplicateOp, edgeDeleteOp, moveOp, toFlow, type Catalog, type FlowEdge, type FlowNode, type Op } from "./lib/graph";
   import SlopNode from "./SlopNode.svelte";
-  import Inspector from "./Inspector.svelte";
+  import Popup from "./Popup.svelte";
+  import SidePanel from "./Panel.svelte";
   import AddNode from "./AddNode.svelte";
+  import ContextMenu, { type MenuItem } from "./ContextMenu.svelte";
 
   let { path, catalog }: { path: string; catalog: Catalog } = $props();
 
@@ -15,6 +17,37 @@
   let toast = $state("");
   let missing = $state(false);
   const nodeTypes = { slopc: SlopNode };
+  let popup: { x: number; y: number } | null = $state(null);
+  let menu: { x: number; y: number; items?: MenuItem[]; add?: boolean } | null = $state(null);
+
+  function openPopup(id: string) {
+    selected = id;
+    const r = document.querySelector(`.svelte-flow__node[data-id="${CSS.escape(id)}"]`)?.getBoundingClientRect();
+    if (!r) return;
+    const w = 360;
+    const x = r.right + 12 + w > innerWidth ? Math.max(8, r.left - w - 12) : r.right + 12;
+    popup = { x, y: Math.max(48, Math.min(r.top, innerHeight - 320)) };
+  }
+
+  function closeAll() {
+    selected = null;
+    popup = null;
+    menu = null;
+  }
+
+  function nodeMenu(id: string, e: MouseEvent) {
+    e.preventDefault();
+    const n = view?.project.nodes?.[id];
+    if (!n) return;
+    menu = {
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: "Duplicate", run: () => apply([duplicateOp(n)]) },
+        { label: "Delete", danger: true, run: () => apply([{ op: "remove_node", id }]) },
+      ],
+    };
+  }
 
   async function reload() {
     try {
@@ -72,6 +105,18 @@
   });
 </script>
 
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === "Escape") {
+      if (menu) menu = null;
+      else popup = null;
+    }
+  }}
+  onpointerdown={(e) => {
+    if (!(e.target as Element).closest(".menu")) menu = null;
+  }}
+/>
+
 {#if missing}
   <p class="center">No project <code>{path}</code>. <a href="#/">Back to projects</a></p>
 {:else}
@@ -90,28 +135,44 @@
         {onconnect}
         {isValidConnection}
         {onbeforedelete}
+        proOptions={{ hideAttribution: true }}
         onnodedragstop={({ nodes: moved }) => apply(moved.map((n) => moveOp(n.id, n.position)))}
-        onnodeclick={({ node }) => (selected = node.id)}
-        onpaneclick={() => (selected = null)}
+        onnodeclick={({ node }) => openPopup(node.id)}
+        onpaneclick={closeAll}
+        onnodecontextmenu={({ node, event }) => nodeMenu(node.id, event)}
+        onedgecontextmenu={({ edge, event }) => {
+          event.preventDefault();
+          menu = { x: event.clientX, y: event.clientY, items: [{ label: "Disconnect", run: () => apply([edgeDeleteOp(edge as FlowEdge)]) }] };
+        }}
+        onpanecontextmenu={({ event }) => {
+          event.preventDefault();
+          menu = { x: event.clientX, y: event.clientY, add: true };
+        }}
       >
-        <Background />
+        <Background gap={24} />
         <Controls />
         <Panel position="top-left"><AddNode {catalog} add={(op) => apply([op])} /></Panel>
+        {#if menu}
+          <ContextMenu x={menu.x} y={menu.y} items={menu.items} catalog={menu.add ? catalog : null} add={(op) => apply([op])} close={() => (menu = null)} />
+        {/if}
       </SvelteFlow>
       {#if toast}<button class="toast" onclick={() => (toast = "")}>{toast}</button>{/if}
     </div>
     {#if view}
-      <Inspector {path} {catalog} {view} bind:selected {apply} />
+      <SidePanel {path} {catalog} {view} {selected} {apply} />
+      {#if popup && selected}
+        <Popup {catalog} {view} bind:id={selected} x={popup.x} y={popup.y} {apply} close={() => (popup = null)} />
+      {/if}
     {/if}
   </div>
 {/if}
 
 <style>
-  .editor { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: 36px 1fr; height: 100vh; }
-  header { grid-column: 1 / 3; display: flex; gap: 12px; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  header a { color: var(--accent); font-weight: bold; text-decoration: none; }
-  .path { font-family: ui-monospace, monospace; }
-  .graph { position: relative; }
-  .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); white-space: pre-wrap; background: #4a2020; border-color: var(--error); max-width: 70%; text-align: left; z-index: 10; }
+  .editor { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 44px 1fr; height: 100vh; }
+  header { grid-column: 1 / 3; display: flex; gap: 16px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  header a { color: var(--ink); font-weight: 500; text-decoration: none; letter-spacing: -0.01em; }
+  .path { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .graph { position: relative; min-width: 0; }
+  .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); white-space: pre-wrap; background: #3a2422; border-color: var(--error); max-width: 70%; text-align: left; z-index: 10; }
   .center { text-align: center; margin-top: 20vh; }
 </style>

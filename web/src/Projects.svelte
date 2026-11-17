@@ -38,14 +38,18 @@
     <label>Path <input bind:value={path} size="30" /></label>
     <label>Width <input type="number" min="1" max="4096" bind:value={width} /></label>
     <label>Height <input type="number" min="1" max="4096" bind:value={height} /></label>
-    <button type="submit">Create</button>
+    <button type="submit" class="primary">Create project</button>
   </form>
   {#if error}<p class="error">{error}</p>{/if}
 </main>
 
 <style>
   main { max-width: 720px; margin: 40px auto; padding: 0 16px; }
-  h1 { color: var(--accent); }
-  a { color: var(--text); }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 15px; margin-top: 32px; color: var(--muted); }
+  ul { padding: 0; list-style: none; }
+  li a { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); font-family: var(--font-mono); text-decoration: none; }
+  li a:hover { color: var(--accent); }
+  a { color: var(--ink); }
   form { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 </style>

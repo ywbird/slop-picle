@@ -1,35 +1,92 @@
+/* Look dealt by design-taste-frontend for a developer tool: palette green-black-bone, Host Grotesk + JetBrains Mono, radius sharp. */
+@import "@fontsource-variable/host-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
+
 :root {
-  --bg: #1b1d23;
-  --panel: #23262e;
-  --line: #353a45;
-  --text: #d8dbe2;
-  --muted: #8a90a0;
-  --accent: #e0a458;
-  --error: #e05a5a;
+  --bg: #161c1a;
+  --surface: #1f2725;
+  --surface-2: #28322f;
+  --line: #34403c;
+  --ink: #e3e2da;
+  --muted: #8e948d;
+  --accent: #9fc7b8;
+  --accent-ink: #161c1a;
+  --error: #e0796b;
+  --font-text: "Host Grotesk Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --m-in: 150ms;
+  --m-out: 120ms;
+  --m-press: 90ms;
+  --m-panel: 200ms;
   color-scheme: dark;
-  font: 13px/1.4 ui-sans-serif, system-ui, sans-serif;
-  color: var(--text);
+  font: 400 13px/1.45 var(--font-text);
+  color: var(--ink);
   background: var(--bg);
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, input, select { font: inherit; color: inherit; background: #2c3039; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
-button { cursor: pointer; }
-button:hover { border-color: var(--accent); }
-input[type="number"] { width: 5.5em; }
+h1, h2, h3 { font-weight: 500; letter-spacing: -0.02em; }
+code { font-family: var(--font-mono); }
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 4px 8px;
+  min-height: 28px;
+}
+button {
+  cursor: pointer;
+  font-weight: 500;
+  transition: transform var(--m-out) var(--ease), background-color var(--m-out) var(--ease), border-color var(--m-out) var(--ease);
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover {
+    transform: translateY(-1px);
+    border-color: var(--muted);
+    background: color-mix(in srgb, var(--surface-2) 86%, var(--ink));
+    transition-duration: var(--m-in);
+  }
+  button.primary:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 86%, var(--ink)); border-color: var(--accent); }
+  button:not(:disabled):active { transform: translateY(1px) scale(0.985); transition-duration: var(--m-press); }
+}
+input, select { transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease); }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input:focus-visible, select:focus-visible { outline: none; }
+input[type="number"] { width: 5.5em; font-family: var(--font-mono); font-size: 12px; }
+input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
+input[type="range"] { accent-color: var(--accent); padding: 0; border: 0; background: none; }
+a { color: var(--ink); text-underline-offset: 3px; }
 .pixel { image-rendering: pixelated; }
 .muted { color: var(--muted); }
 .error { color: var(--error); }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
 .svelte-flow {
   --xy-background-color: var(--bg);
-  --xy-background-pattern-color: #3a3f4b;
-  --xy-edge-stroke: #8a90a0;
+  --xy-background-pattern-color: #2a3431;
+  --xy-edge-stroke: #6f7a76;
+  --xy-edge-stroke-width: 1.5;
   --xy-edge-stroke-selected: var(--accent);
-  --xy-controls-button-background-color: var(--panel);
-  --xy-controls-button-color: var(--text);
+  --xy-connectionline-stroke: var(--accent);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-2);
+  --xy-controls-button-color: var(--ink);
   --xy-controls-button-border-color: var(--line);
   --xy-node-background-color: transparent;
   --xy-node-border: none;
-  --xy-attribution-background-color: transparent;
+  --xy-node-boxshadow-selected: none;
 }
 .svelte-flow__node-slopc { padding: 0; }
+.svelte-flow__controls { border-radius: var(--r-md); overflow: hidden; box-shadow: none; border: 1px solid var(--line); }
