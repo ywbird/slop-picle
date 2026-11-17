@@ -146,6 +146,9 @@ Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet exp
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
+- [ ] 이름 picle로 결정했어
+  - To confirm: what the rename covers (binary, crate, `*.slopc.json` extension, the file's `"slopc": 1` key, env vars, cookie, docs), and whether old `*.slopc.json` files must still load
+
 - [x] 예시 프로젝트 하나 만들어줘: 3d 김치 (commit 354d8af)
   - [x] `examples/kimchi.slopc.json`, 64×64, 24 frames at 12 fps: a white porcelain bowl of cut napa cabbage kimchi in kimchi juice on a turntable; the heap is sprite-stacked from a turning height map (14 layers, squashed for a 3/4 view), lit from the upper left after turning, snapped to a kimchi palette. Accepted ("김치는 이제 됐고")
 
