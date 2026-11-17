@@ -146,13 +146,13 @@ Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and spr
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-- [ ] webui: 패널은 프로젝트 설정만. 노드 눌렀을때 노드 내용은 팝업에만 뜨도록. 노드 출력 이미지는 노드에서 이미지를 눌러서 팝업으로 표시.
+- [x] webui: 패널은 프로젝트 설정만. 노드 눌렀을때 노드 내용은 팝업에만 뜨도록. 노드 출력 이미지는 노드에서 이미지를 눌러서 팝업으로 표시. (commit e95a3dd)
   - [x] Panel: project settings only, collapsed by default, opened and closed only by its button
   - [x] Thumbnail click: a floating card beside the node with zoom, frame and a PNG download link; draggable, Esc closes; may be open with the value popup
-- [ ] webui: 배경을 그리드 라던가 점 그리드 라던가 뭔가 추가
+- [x] webui: 배경을 그리드 라던가 점 그리드 라던가 뭔가 추가 (commit e95a3dd)
   - [x] Following upstream (Pixel Composer's graph): a square line grid with a stronger major line every 5 cells
-- [ ] webui: 드래그로 노드 그룹 선택 / 이동
-  - [x] Following upstream: left-drag on the empty canvas draws a selection box, middle-drag pans (also Space + drag, scroll zooms); dragging any selected node moves the whole group, saved as one batch
+- [x] webui: 드래그로 노드 그룹 선택 / 이동 (commit e95a3dd)
+  - [x] Following upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected), middle-drag pans (also Space + drag, scroll zooms); dragging any selected node moves the whole group, saved as one batch
 
 - [x] webui: 노드 삭제가 없는거 같은데 + 우클릭 메뉴 만들어줘. 거기에 삭제 옵션 추가 하는 방식? (commit b4be98f)
   - [x] Node menu: delete, duplicate. Empty canvas menu: add node (search). Edge menu: disconnect
