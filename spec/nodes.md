@@ -137,49 +137,68 @@ exact 0/±1.
 
 ## blend — compose
 
-Upstream: `scripts/node_blend`, `scripts/draw_surface_blend`, `shaders/sh_blend_*`. Left out: `Mask`, `Swap`,
-`Invert mask`, `Mask feather`, `Output dimension` (always background), `Constant dimension`, `Fill mode` (always none),
-`Horizontal Align`, `Vertical Align`. Blend modes: all of upstream `BLEND_TYPES` (`scripts/draw_surface_blend`), in
-its order, names in snake case.
+Upstream: `scripts/node_blend`, `scripts/draw_surface_blend`, `shaders/sh_blend_*`, `scripts/mask_function`
+(`mask_modify`), `shaders/sh_mask_invert`. Left out: `Horizontal Align`, `Vertical Align` (upstream neither shows nor
+uses them) and the mask's "alpha only" attribute (off). Blend modes: all of upstream `BLEND_TYPES`
+(`scripts/draw_surface_blend`), in its order, names in snake case.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `background` | surface | required | |
 | `foreground` | surface | none (optional) | |
+| `mask` | surface | none (optional) | |
+| `swap` | bool | false | |
+| `invert_mask` | bool | false | |
+| `mask_feather` | number | 1 | 1–16 |
+| `output_dimension` | enum `background`, `foreground`, `mask`, `maximum`, `constant` | `background` | |
+| `constant_dimension` | dimension | project size | |
 | `blend_mode` | enum `normal`, `replace`, `multiply`, `color_burn`, `linear_burn`, `minimum`, `add`, `screen`, `color_dodge`, `maximum`, `overlay`, `soft_light`, `hard_light`, `vivid_light`, `linear_light`, `pin_light`, `difference`, `exclusion`, `subtract`, `divide`, `hue`, `saturation`, `luminosity`, `equal`, `unequal` | `normal` | |
 | `opacity` | number | 1 | 0–1 |
 | `preserve_alpha` | bool | false | |
-| `position` | vec2 | `[0.5, 0.5]` | fraction of the background size |
+| `fill_mode` | enum `none`, `stretch`, `tile` | `none` | |
+| `position` | vec2 | `[0.5, 0.5]` | fraction of the output size |
 
 | Output | Type |
 |---|---|
-| `surface_out` | surface, same size as `background` |
+| `surface_out` | surface, `output_dimension` |
 
-Without `foreground`, the output is the background.
+With `swap`, `background` and `foreground` trade places first. The output size is the background's, the foreground's,
+the mask's, the largest of the three per axis (`maximum`) or `constant_dimension`; a missing surface counts as 1×1.
+Missing background (only possible with `swap`): the output is transparent. The background is stretched to the output
+size (nearest-neighbour: output pixel `p` reads `floor((p + 0.5) · size_in / size_out)`), as is the mask. Without
+`foreground`, the output is the stretched background.
 
-Otherwise, as upstream does: a **foreground layer** the size of the background starts fully transparent `(0,0,0,0)`,
-and the foreground is copied onto it with its top-left at `floor(position × bg_size − fg_size / 2)` (centred on
-`position`). Then every pixel of the output is computed from background `B` and layer `F` (straight RGBA in 0–1) with
-`o = opacity`, as the mode's `sh_blend_*` shader does. Vector operations act on all four channels (alpha too), in the
+Otherwise, as upstream does: a **foreground layer** the size of the output starts fully transparent `(0,0,0,0)` and
+gets the foreground by `fill_mode`: `none` copies it with its top-left at `floor(position × out_size − fg_size / 2)`
+(centred on `position`); `stretch` stretches it to the output size; `tile` repeats it from the top-left corner.
+
+Mask strength `m` (1 without a mask): `(r + g + b) / 3 · a` of the stretched mask pixel; with `invert_mask` the mean
+becomes `1 − (r + g + b) / 3` (alpha unchanged, so a transparent mask pixel stays 0, as upstream). `mask_feather` blurs
+the strength with the `blur` node's kernel of that size (1: no blur), outside the mask counting as 0 (deviation:
+upstream blurs the mask image with its own Gaussian).
+
+Then every pixel of the output is computed from background `B` and layer `F` (straight RGBA in 0–1) with
+`o = opacity` and `om = o·m`, as the mode's `sh_blend_*` shader does (`om` where the shader uses `opacity ·
+sampleMask()`, `o` where it uses `opacity` alone). Vector operations act on all four channels (alpha too), in the
 order written; `al = F.a + B.a·(1 − F.a)` with `F.a` as scaled at that point, `po = preserve_alpha ? F.a : o`,
 `lum(c) = 0.2126·c.r + 0.7152·c.g + 0.0722·c.b`:
 
 | Mode | Formula |
 |---|---|
-| `normal` | `F.a ·= o`; `res = (F·F.a + B·B.a·(1 − F.a)) / al`, `res.a = al` |
-| `replace` | `res = mix(B, F, o)` |
-| `multiply` | `res = mix(B, B·F, o)`, `res.rgb /= al` |
-| `minimum`, `maximum` | `F ·= o`; `res = min(B, F)` / `max(B, F)` per channel |
-| `add` | `B.rgb ·= B.a`; `F.a ·= o`; `F.rgb ·= F.a`; `res = B + F`, `res.rgb /= al` |
-| `subtract` | `B.rgb ·= B.a`; `F.a ·= o`; `F.rgb ·= F.a`; `res = mix(B, B − F, po)`, `res.rgb /= al` |
-| `screen` | `F.rgb ·= F.a`; `res = mix(B, 1 − (1 − B)(1 − F), o)`, `res.rgb /= al` |
-| `overlay` | `F.a ·= o`; `X = lum(F.rgb) > 0.5 ? 1 − (1 − 2(F − 0.5))(1 − B) : 2F·B`; `res = mix(B, X, po)`, `res.rgb /= al` |
-| `difference` | `res = mix(B, (abs(B.rgb − F.rgb), 1), o)`; `preserve_alpha` has no effect (upstream ignores it) |
-| `equal`, `unequal` | `c = o` where `B = F` exactly (`equal`) or where they differ (`unequal`), else `0`; `res = (c, c, c, c)` |
-| `hue` | `h = hsv(F.rgb)` with saturation and value of `hsv(B.rgb)`; `res = (mix(B.rgb, rgb(h), F.a·o), B.a)`, `res.rgb /= al` |
-| `saturation` | `h = hsv(B.rgb)`, `h.s = mix(h.s, hsv(F.rgb).s, F.a·o)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
-| `luminosity` | `h = hsl(B.rgb)`, `h.l = mix(h.l, hsl(F.rgb).l, F.a·o)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
-| the rest, below | `F.a ·= o`; `mx = B·(1 − o) + X·o`; `res = mix(B, mx, po)`, `res.rgb /= al` |
+| `normal` | `F.a ·= om`; `res = (F·F.a + B·B.a·(1 − F.a)) / al`, `res.a = al` |
+| `replace` | `res = mix(B, F, om)` |
+| `multiply` | `res = mix(B, B·F, om)`, `res.rgb /= al` |
+| `minimum`, `maximum` | `F ·= om`; `res = min(B, F)` / `max(B, F)` per channel |
+| `add` | `B.rgb ·= B.a`; `F.a ·= om`; `F.rgb ·= F.a`; `res = B + F`, `res.rgb /= al` |
+| `subtract` | `B.rgb ·= B.a`; `F.a ·= om`; `F.rgb ·= F.a`; `res = mix(B, B − F, po)`, `res.rgb /= al` |
+| `screen` | `F.rgb ·= F.a`; `res = mix(B, 1 − (1 − B)(1 − F), om)`, `res.rgb /= al` |
+| `overlay` | `F.a ·= om`; `X = lum(F.rgb) > 0.5 ? 1 − (1 − 2(F − 0.5))(1 − B) : 2F·B`; `res = mix(B, X, po)`, `res.rgb /= al` |
+| `difference` | `res = mix(B, (abs(B.rgb − F.rgb), 1), om)`; `preserve_alpha` has no effect (upstream ignores it) |
+| `equal`, `unequal` | `c = om` where `B = F` exactly (`equal`) or where they differ (`unequal`), else `0`; `res = (c, c, c, c)` |
+| `hue` | `h = hsv(F.rgb)` with saturation and value of `hsv(B.rgb)`; `res = (mix(B.rgb, rgb(h), F.a·om), B.a)`, `res.rgb /= al` |
+| `saturation` | `h = hsv(B.rgb)`, `h.s = mix(h.s, hsv(F.rgb).s, F.a·om)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
+| `luminosity` | `h = hsl(B.rgb)`, `h.l = mix(h.l, hsl(F.rgb).l, F.a·om)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
+| the rest, below | `F.a ·= om`; `mx = B·(1 − o) + X·o`; `res = mix(B, mx, po)`, `res.rgb /= al` |
 
 | Mode | `X` (`L = lum(F.rgb) > 0.5`) |
 |---|---|
@@ -201,7 +220,8 @@ Deviations: where upstream divides by `al = 0`, the output is `(0,0,0,0)`; any o
 
 Faithful to upstream, the formulas act on alpha as well, so some modes give a transparent result for two opaque
 inputs (for example `exclusion`, `subtract`, and `vivid_light` with a dark foreground): `preserve_alpha` keeps the
-background's alpha.
+background's alpha. Likewise the mask only scales `F.a` in `overlay`, `subtract` and the modes of the second table, so
+over an opaque background at full opacity it changes nothing there.
 
 Note, faithful to upstream: the formulas also run where the layer is transparent, so `multiply` and `screen`
 change the background outside the foreground (`multiply` makes it transparent).
@@ -226,6 +246,17 @@ change the background outside the foreground (`multiply` makes it transparent).
 | N-BLEND-16 | opaque `B` (200,100,50) under opaque dark `F` (60,90,40) or light `F` (230,200,120), each mode below | the table below, ± 2 |
 | N-BLEND-17 | opaque (200,100,50) over opaque black, `divide` | (255,255,255,255) (division by 0) |
 | N-BLEND-18 | the same colour as background and foreground, `equal`; `unequal`; `equal` with `opacity 0.5` | (255,255,255,255); (0,0,0,0); (128,128,128,128) ± 1 |
+| N-BLEND-19 | 2×2 black background, white foreground, mask white in column 0 and black in column 1 | column 0 white, column 1 black |
+| N-BLEND-20 | N-BLEND-19 with `invert_mask` | column 0 black, column 1 white |
+| N-BLEND-21 | N-BLEND-19 with a fully transparent mask, `invert_mask` | black (strength 0) |
+| N-BLEND-22 | 6×1, mask white in x < 3, black after, `mask_feather 4` | x 0 white; x 2 and 3 strictly between black and white; x 5 below 64 |
+| N-BLEND-23 | opaque red 4×4 background, opaque blue 2×2 foreground, `swap` | 2×2 output, all red |
+| N-BLEND-24 | 2×2 background (four colours), 4×4 foreground transparent, `output_dimension foreground` | 4×4; each background pixel covers a 2×2 block |
+| N-BLEND-25 | background 4×2, foreground 2×4, `output_dimension maximum`; `constant` with `constant_dimension [3, 5]`; `mask` without a mask | 4×4; 3×5; 1×1 |
+| N-BLEND-26 | 2×2 foreground (four colours) on a 4×4 background, `fill_mode stretch` | each foreground pixel covers a 2×2 block |
+| N-BLEND-27 | the same, `fill_mode tile` | the 2×2 pattern at (0,0), (2,0), (0,2), (2,2) |
+| N-BLEND-28 | `swap` with no foreground | 1×1, (0,0,0,0) |
+| N-BLEND-29 | `color_burn`, light `F` of N-BLEND-16 over its `B`, a 50% grey mask | (194,57,0,255), as without a mask (upstream) |
 
 N-BLEND-16 expectations (from upstream's formulas; `o` = opacity):
 
