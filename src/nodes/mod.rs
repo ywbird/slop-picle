@@ -129,7 +129,10 @@ fn transform(ctx: &mut Ctx, v: &[Value]) -> R {
 
 // ---------- blend ----------
 
-pub const BLEND_MODES: &[&str] = &["normal", "replace", "multiply", "add", "screen"];
+pub const BLEND_MODES: &[&str] = &[
+    "normal", "replace", "multiply", "color_burn", "linear_burn", "minimum", "add", "screen", "color_dodge", "maximum", "overlay", "soft_light", "hard_light",
+    "vivid_light", "linear_light", "pin_light", "difference", "exclusion", "subtract", "divide", "hue", "saturation", "luminosity", "equal", "unequal",
+];
 
 const BLEND_IN: &[I] = &[
     I::required("background", T::Surface, "Bottom image; sets the output size."),
@@ -140,37 +143,147 @@ const BLEND_IN: &[I] = &[
     I::new("position", T::Vec2, D::Vec2([0.5, 0.5]), "Foreground centre, as a fraction of the background size."),
 ];
 
-// Ported from upstream shaders/sh_blend_{normal,replace,multiply,add,screen}.fsh.
-const BLEND_WGSL: &str = "
+/// Upstream `shaders/sh_blend_*` as one function, `mode` indexing `BLEND_MODES` (spec/nodes.md#blend--compose).
+pub const BLEND_FN: &str = "
+fn blend_div(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
+    return select(a / b, sign(a) * 1e30, b == vec4<f32>(0.0));
+}
+fn blend_rgb2hsl(c: vec3<f32>) -> vec3<f32> {
+    let mn = min(c.r, min(c.g, c.b));
+    let mx = max(c.r, max(c.g, c.b));
+    let l = (mx + mn) / 2.0;
+    if (mx <= mn) { return vec3<f32>(0.0, 0.0, l); }
+    let d = mx - mn;
+    let s = select(d / (2.0 - (mx + mn)), d / (mx + mn), l < 0.5);
+    var h: f32;
+    if (c.r == mx) { h = (c.g - c.b) / d; } else if (c.g == mx) { h = 2.0 + (c.b - c.r) / d; } else { h = 4.0 + (c.r - c.g) / d; }
+    if (h < 0.0) { h += 6.0; }
+    return vec3<f32>(h / 6.0, s, l);
+}
+fn blend_hue2rgb(m1: f32, m2: f32, h0: f32) -> f32 {
+    var h = h0;
+    if (h < 0.0) { h += 1.0; } else if (h > 1.0) { h -= 1.0; }
+    if (6.0 * h < 1.0) { return m1 + (m2 - m1) * h * 6.0; }
+    if (2.0 * h < 1.0) { return m2; }
+    if (3.0 * h < 2.0) { return m1 + (m2 - m1) * (2.0 / 3.0 - h) * 6.0; }
+    return m1;
+}
+fn blend_hsl2rgb(c: vec3<f32>) -> vec3<f32> {
+    if (c.y == 0.0) { return vec3<f32>(c.z); }
+    let m2 = select(c.z + c.y - c.z * c.y, c.z * (1.0 + c.y), c.z <= 0.5);
+    let m1 = 2.0 * c.z - m2;
+    return vec3<f32>(blend_hue2rgb(m1, m2, c.x + 1.0 / 3.0), blend_hue2rgb(m1, m2, c.x), blend_hue2rgb(m1, m2, c.x - 1.0 / 3.0));
+}
+fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, mode: u32, pa: bool) -> vec4<f32> {
+    var B = B0;
+    var F = F0;
+    var res = B;
+    var al = 0.0;
+    var divide = true;
+    switch mode {
+        case 0u: {
+            F.a = F.a * o;
+            al = F.a + B.a * (1.0 - F.a);
+            if (al == 0.0) { return vec4<f32>(0.0); }
+            res = (F * F.a + B * B.a * (1.0 - F.a)) / al;
+            res.a = al;
+            divide = false;
+        }
+        case 1u: {
+            res = mix(B, F, o);
+            divide = false;
+        }
+        case 2u: {
+            res = mix(B, B * F, o);
+            al = F.a + B.a * (1.0 - F.a);
+        }
+        case 5u, 9u: {
+            F = F * o;
+            res = select(max(B, F), min(B, F), mode == 5u);
+            divide = false;
+        }
+        case 6u, 18u: {
+            B = vec4<f32>(B.rgb * B.a, B.a);
+            F.a = F.a * o;
+            F = vec4<f32>(F.rgb * F.a, F.a);
+            al = F.a + B.a * (1.0 - F.a);
+            if (mode == 6u) { res = B + F; } else { res = mix(B, B - F, select(o, F.a, pa)); }
+        }
+        case 7u: {
+            F = vec4<f32>(F.rgb * F.a, F.a);
+            res = mix(B, vec4<f32>(1.0) - (vec4<f32>(1.0) - B) * (vec4<f32>(1.0) - F), o);
+            al = F.a + B.a * (1.0 - F.a);
+        }
+        case 10u: {
+            F.a = F.a * o;
+            var X = 2.0 * F * B;
+            if (lum(F.rgb) > 0.5) { X = vec4<f32>(1.0) - (vec4<f32>(1.0) - 2.0 * (F - 0.5)) * (vec4<f32>(1.0) - B); }
+            res = mix(B, X, select(o, F.a, pa));
+            al = F.a + B.a * (1.0 - F.a);
+        }
+        case 16u: {
+            return clamp(mix(B, vec4<f32>(abs(B.rgb - F.rgb), 1.0), o), vec4<f32>(0.0), vec4<f32>(1.0));
+        }
+        case 23u, 24u: {
+            res = vec4<f32>(select(0.0, o, all(B == F) == (mode == 23u)));
+            divide = false;
+        }
+        case 20u, 21u, 22u: {
+            al = F.a + B.a * (1.0 - F.a);
+            let t = F.a * o;
+            var rgb: vec3<f32>;
+            if (mode == 20u) {
+                let h0 = rgb2hsv(B.rgb);
+                let h1 = rgb2hsv(F.rgb);
+                rgb = mix(B.rgb, hsv2rgb(vec3<f32>(h1.x, h0.y, h0.z)), t);
+            } else if (mode == 21u) {
+                var h0 = rgb2hsv(B.rgb);
+                h0.y = mix(h0.y, rgb2hsv(F.rgb).y, t);
+                rgb = hsv2rgb(h0);
+            } else {
+                var h0 = blend_rgb2hsl(B.rgb);
+                h0.z = mix(h0.z, blend_rgb2hsl(F.rgb).z, t);
+                rgb = blend_hsl2rgb(h0);
+            }
+            res = vec4<f32>(rgb, B.a);
+        }
+        default: {
+            F.a = F.a * o;
+            let one = vec4<f32>(1.0);
+            let L = lum(F.rgb) > 0.5;
+            var X: vec4<f32>;
+            switch mode {
+                case 3u: { X = one - blend_div(one - B, F); }
+                case 4u: { X = B + F - one; }
+                case 8u: { X = blend_div(F, one - B); }
+                case 11u: { X = select(B * (F + 0.5), one - (one - B) * (one - (F - 0.5)), L); }
+                case 12u: { X = select(2.0 * B * F, one - (one - B) * (one - 2.0 * (F - 0.5)), L); }
+                case 13u: { X = select(blend_div(B, one - 2.0 * F), one - (one - B) * (2.0 * (F - 0.5)), L); }
+                case 14u: { X = B + 2.0 * F - one; }
+                case 15u: { X = select(min(B, 2.0 * F), max(B, 2.0 * (F - 0.5)), L); }
+                case 17u: { X = 0.5 - 2.0 * (B - 0.5) * (F - 0.5); }
+                default: { X = blend_div(B, F); }
+            }
+            let mx = B * (1.0 - o) + X * o;
+            res = mix(B, mx, select(o, F.a, pa));
+            al = F.a + B.a * (1.0 - F.a);
+        }
+    }
+    if (divide) {
+        if (al == 0.0) { return vec4<f32>(0.0); }
+        res = vec4<f32>(res.rgb / al, res.a);
+    }
+    if (pa) { res.a = B.a; }
+    return clamp(res, vec4<f32>(0.0), vec4<f32>(1.0));
+}
+";
+
+const BLEND_SHADE: &str = "
 fn shade(px: vec2<i32>) -> vec4<f32> {
     let B = load_background(px);
     if (p.foreground_info.z == 0u) { return B; }
     let F = load_foreground(px - vec2<i32>(p.fg_off.xy));
-    let o = p.opacity.x;
-    let mode = p.blend_mode.x;
-    var res: vec4<f32>;
-    var fa = F.a;
-    if (mode == 0u || mode == 3u) { fa = F.a * o; }
-    let al = fa + B.a * (1.0 - fa);
-    if (mode == 0u) {
-        if (al == 0.0) { return vec4<f32>(0.0); }
-        res = vec4<f32>((F.rgb * fa + B.rgb * B.a * (1.0 - fa)) / al, al);
-    } else if (mode == 1u) {
-        res = mix(B, F, o);
-    } else {
-        if (mode == 2u) {
-            res = mix(B, B * F, o);
-        } else if (mode == 3u) {
-            res = vec4<f32>(B.rgb * B.a + F.rgb * fa, B.a + fa);
-        } else {
-            let F2 = vec4<f32>(F.rgb * F.a, F.a);
-            res = mix(B, vec4<f32>(1.0) - (vec4<f32>(1.0) - B) * (vec4<f32>(1.0) - F2), o);
-        }
-        if (al == 0.0) { return vec4<f32>(0.0); }
-        res = vec4<f32>(res.rgb / al, res.a);
-    }
-    if (p.preserve_alpha.x == 1u) { res.a = B.a; }
-    return clamp(res, vec4<f32>(0.0), vec4<f32>(1.0));
+    return blend_px(B, F, p.opacity.x, p.blend_mode.x, p.preserve_alpha.x == 1u);
 }
 ";
 
@@ -186,7 +299,7 @@ fn blend(ctx: &mut Ctx, v: &[Value]) -> R {
         }
         None => [0.0, 0.0],
     };
-    out(shader::run(ctx, v, BLEND_WGSL, &[("fg_off", [off[0], off[1], 0.0, 0.0])], [bg.width, bg.height])?)
+    out(shader::run(ctx, v, &format!("{BLEND_FN}{BLEND_SHADE}"), &[("fg_off", [off[0], off[1], 0.0, 0.0])], [bg.width, bg.height])?)
 }
 
 // ---------- image ----------
