@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bytemuck = { version = "1.25.2", features = ["derive"] }
 clap = { version = "4.6.8", features = ["derive"] }
+indexmap = "2.14.2"
 png = "0.18.1"
 pollster = "1.0.1"
 serde = { version = "1.0.229", features = ["derive"] }

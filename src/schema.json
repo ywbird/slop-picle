@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slopc.local/project.schema.json",
+  "title": "slopc project",
+  "description": "Structure of a *.slopc.json file. Input names per node type are checked by `slopc validate`, not by this schema.",
+  "type": "object",
+  "required": ["slopc"],
+  "additionalProperties": false,
+  "properties": {
+    "slopc": { "const": 1 },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "frames": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "fps": { "type": "number", "exclusiveMinimum": 0, "maximum": 240 }
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "maxProperties": 1000,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/node" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "label": { "type": "string", "maxLength": 500 },
+        "inputs": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "$ref": "#/$defs/input" }
+        },
+        "pos": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+      }
+    },
+    "input": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["ref"],
+          "additionalProperties": false,
+          "properties": { "ref": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}(\\.[a-z][a-z0-9_]*)?$" } }
+        },
+        { "type": ["number", "boolean", "string"] },
+        { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+      ]
+    }
+  }
+}

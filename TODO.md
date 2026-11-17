@@ -83,15 +83,15 @@ Every milestone starts by writing the spec for its areas in `spec/`, then the te
 ### M1 — Headless core and CLI
 
 - [x] Spec: project file, types and catalog, evaluation and GPU, M1 nodes, CLI
-- [ ] Scaffold: Cargo crate `slopc`, `.gitignore`
-- [ ] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
-- [ ] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
-- [ ] Validation: unknown type or input, type mismatch, cycle, dangling ref, out-of-range value, caps on surface size and node count
-- [ ] GPU: headless wgpu device, shader-node helper (uniforms generated from the catalog entry), read back to PNG
-- [ ] Evaluator: topological order, takes a frame number, caches node outputs by content hash
-- [ ] First nodes end to end: solid, noise, transform, blend, image, output
-- [ ] CLI: `new`, `nodes`, `show`, `validate`, `render`
-- [ ] Golden-image tests with a per-channel tolerance
+- [x] Scaffold: Cargo crate `slopc`, `.gitignore`
+- [x] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
+- [x] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
+- [x] Validation: unknown type or input, type mismatch, cycle, dangling ref, out-of-range value, caps on surface size and node count
+- [x] GPU: headless wgpu device, shader-node helper (uniforms generated from the catalog entry), read back to PNG
+- [x] Evaluator: topological order, takes a frame number, caches node outputs by content hash
+- [x] First nodes end to end: solid, noise, transform, blend, image, output
+- [x] CLI: `new`, `nodes`, `show`, `validate`, `render`
+- [x] Golden-image tests with a per-channel tolerance
 
 Done when `slopc render examples/hello.slopc.json -o hello.png` matches its golden image.
 
