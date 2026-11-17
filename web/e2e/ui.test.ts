@@ -27,7 +27,7 @@ beforeAll(async () => {
       settings: { width: 16, height: 16 },
       nodes: {
         bg: { type: "solid", inputs: { color: "#336699" }, pos: [0, 0] },
-        n: { type: "noise", pos: [0, 260] },
+        n: { type: "noise", pos: [0, 420] },
         out: { type: "output", inputs: { surface_in: { ref: "bg" } }, pos: [320, 0] },
       },
     }),
@@ -57,7 +57,7 @@ test("WEB-09 nodes, thumbnails and live external edits", async () => {
     return imgs.length === 3 && imgs.every((i) => i.complete && i.naturalWidth === 16);
   });
   const edit = Bun.spawn([bin, "edit", file, "-"], { stdin: "pipe" });
-  edit.stdin.write(JSON.stringify([{ op: "add_node", id: "extra", type: "checker", pos: [320, 260] }]));
+  edit.stdin.write(JSON.stringify([{ op: "add_node", id: "extra", type: "checker", pos: [700, 420] }]));
   edit.stdin.end();
   expect(await edit.exited).toBe(0);
   await page.waitForFunction(() => document.querySelectorAll(".svelte-flow__node").length === 4, null, { timeout: 5000 });
