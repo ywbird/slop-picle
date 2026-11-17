@@ -146,14 +146,15 @@ Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and spr
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-- [ ] webui: 노드 삭제가 없는거 같은데 + 우클릭 메뉴 만들어줘. 거기에 삭제 옵션 추가 하는 방식?
+- [x] webui: 노드 삭제가 없는거 같은데 + 우클릭 메뉴 만들어줘. 거기에 삭제 옵션 추가 하는 방식? (commit b4be98f)
   - [x] Node menu: delete, duplicate. Empty canvas menu: add node (search). Edge menu: disconnect
-- [ ] webui: 우하단에 svelte flow 링크는 없애
-- [ ] webui: 노드 눌렀을때 옆에 패널에 값이 나오는 방식 보다는 팝업에서 값 조정.
+- [x] webui: 우하단에 svelte flow 링크는 없애 (commit b4be98f)
+- [x] webui: 노드 눌렀을때 옆에 패널에 값이 나오는 방식 보다는 팝업에서 값 조정. (commit b4be98f)
   - [x] Click a node: a floating card next to it, draggable; closes on empty-canvas click or Esc
-- [ ] webui: 노드 선택 안했을때 패널은 접혀있도록.
+- [x] webui: 노드 선택 안했을때 패널은 접혀있도록. (commit b4be98f)
   - [x] Side panel keeps preview + project settings; opens with a selection, collapses without one, has a manual toggle
-- [ ] webui: design-taste-frontend 스킬 써서 ui 개선.
+- [x] webui: design-taste-frontend 스킬 써서 ui 개선. (commit b4be98f)
+  - [x] Applied the parts that fit an editor app: dealt palette (green-black-bone), type (Host Grotesk + JetBrains Mono, bundled), radius sharp, motion and focus tokens. The skill's marketing-page rules (hero, one section per screen, photographs, page gate) do not apply; see `spec/web.md` Look
 
 - [x] 노드를 드래그 할때, 드래그 전 위치로 순간이동 했다가, 커서로 순간이동 했다가, 왔다갔다를 반복하고 깜빡거려. (commit 0d41c8b)
   - Cause: the server's file watcher reported reads as changes, so every project read sent a `changed` event and the UI reloaded in a loop, resetting the dragged node each time. Fixed in `src/server.rs`; regression tests SRV-20 and WEB-12.
