@@ -146,6 +146,12 @@ Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and spr
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
+- [ ] webui: 노드 선택 delete 키로 삭제
+- [ ] webui: 복수 선택 노드 일괄 delete 키 삭제
+- [ ] webui: undo 기능 + 단축키
+  - [x] Scope: this tab's own edits; undo reverts only what that edit touched, so MCP/CLI edits made since are kept; a conflicting undo is refused with a message; history is lost on reload
+  - [x] Redo included. Shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo; undo/redo buttons in the top bar
+
 - [x] webui: 패널은 프로젝트 설정만. 노드 눌렀을때 노드 내용은 팝업에만 뜨도록. 노드 출력 이미지는 노드에서 이미지를 눌러서 팝업으로 표시. (commit e95a3dd)
   - [x] Panel: project settings only, collapsed by default, opened and closed only by its button
   - [x] Thumbnail click: a floating card beside the node with zoom, frame and a PNG download link; draggable, Esc closes; may be open with the value popup
