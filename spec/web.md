@@ -34,7 +34,7 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
   As upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected); middle-drag, or Space + drag, pans; the wheel
   zooms. Dragging any selected node moves the whole selection, saved as one batch of `move_node` ops.
 - *Context menus* (right click). On a node: Delete, Duplicate. On an edge: Disconnect. On the empty canvas: the
-  add-node search, adding at the cursor. Esc or a click elsewhere closes the menu. Delete/Backspace keep working.
+  add-node search, adding at the cursor. Esc or a click elsewhere closes the menu.
 - *Add node.* A search box (top left, and in the canvas menu) listing catalog types by name, category and
   description.
 
@@ -55,13 +55,18 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | connect output `a.o` to input `b.i` | `set_input {id: b, input: i, value: {ref: "a.o"}}` (`{ref: "a"}` when `o` is the first output) |
 | delete an edge | `unset_input` |
 | drag a node and drop it | `move_node` with the rounded position |
-| delete a node | `remove_node` |
+| Delete or Backspace with nodes and/or edges selected | one batch: `remove_node` for each node, `unset_input` for each edge not attached to a removed node |
+| Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl+Y, or the top-bar buttons | send the last edit's `undo` / `redo` ops |
 | change a widget | `set_input` with the literal; reset → `unset_input` |
 | rename / label | `rename_node` / `set_label` |
 | add from search | `add_node {type, pos}` (server picks the id) |
 | Duplicate (node menu) | `add_node` with the same type, inputs and label, 40 px down and right (server picks the id) |
 | settings | `set_settings` |
 
+- Undo history is this tab's: each edit the tab sends pushes the `undo`/`redo` lists the server returns (at most 100);
+  undo moves an entry to the redo stack and redo moves it back; a new edit clears the redo stack. A rejected undo or redo
+  (someone else changed those nodes) shows the errors and drops that entry. Shortcuts are ignored while typing in a
+  field, so fields keep their own undo. Reloading the page clears the history.
 - A connection whose output type does not fit the input type ([types.md](types.md#fit-rules)) is refused in the UI
   before any request.
 - A rejected batch shows its errors in a toast; the graph stays as the server has it.
@@ -99,4 +104,8 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-18 | headless Chromium: click a node's thumbnail; change zoom; Esc | an image card with the node's PNG at its size; the shown width follows the zoom; a download link to `/api/render`; closes |
 | WEB-19 | headless Chromium: the canvas | a line-grid background with two pattern layers (minor and major) |
 | WEB-20 | headless Chromium: drag a box over two nodes, then drag one of them | both selected; both move; one `/api/ops` request with two `move_node` ops |
+| WEB-21 | headless Chromium: select a node, press Delete | the node is gone from the file |
+| WEB-22 | headless Chromium: box-select two nodes, press Delete | both gone, in one `/api/ops` request |
+| WEB-23 | headless Chromium: after WEB-22, Ctrl+Z, then Ctrl+Shift+Z, then the undo button | nodes back / gone again / back |
+| WEB-24 | headless Chromium: change a value, `slopc edit` adds a node, Ctrl+Z | the value is back to before; the added node is still there |
 | WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` (in the popup) | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |

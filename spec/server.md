@@ -40,7 +40,7 @@ Errors are `{"ok": false, "errors": [...]}` (shapes from [project-file.md](proje
 | `GET /api/projects` | | `{ "projects": [...] }` (as MCP `list_projects`) |
 | `POST /api/projects` | `{ path, width?, height? }` | `201 { ok, path }` |
 | `GET /api/project` | `?path=` | `{ project, errors, keys }`: file JSON, validation errors, cache key per node (hex) |
-| `POST /api/ops` | `?path=`, body: ops array | `200` batch result ([ops.md](ops.md)), or `422` with the errors |
+| `POST /api/ops` | `?path=`, body: ops array | `200` batch result ([ops.md](ops.md)) plus `undo` and `redo` op lists ([ops.md](ops.md#undo-data)), or `422` with the errors |
 | `GET /api/render` | `?path=&node=&frame=&scale=` | `image/png` (scale 1–32, default 1; node default as CLI) |
 | `GET /api/events` | `?path=` | Server-Sent Events, see below |
 | `POST /api/upload` | `?path=` (a `.png` path), body: PNG bytes | M5: `201 { ok, path }`; not a decodable PNG within the size limits → `400 bad_request` |
@@ -92,6 +92,7 @@ Tests start `slopc serve --port 0 --root <tempdir> --token test-token` and parse
 | SRV-14 | no `--token`, `SLOPC_TOKEN=env-token` | URL shows `env-token`; it authorises |
 | SRV-15 | no token anywhere | URL shows a 32-hex-character token |
 | SRV-20 | subscribe to events, then read the project and render it 5 times | only the connect event within 1 s (regression: reads were reported as changes, making the UI reload in a loop) |
+| SRV-21 | apply a batch, then post its `undo`, then its `redo` | each 200; the file returns to the original, then to the edited state |
 | SRV-16 | `POST /mcp` `initialize` without token / with Bearer | 401 / a JSON-RPC result |
 | SRV-17 | over `/mcp` with a `Host` header that is not loopback (e.g. `192.168.1.5:7420`): initialize, `tools/list`, create, edit, render | six tools; render returns an image |
 | SRV-18 | `POST /api/upload?path=assets/a.png` with a PNG; then an `image` node reading it is rendered | 201; the file exists; the render shows its pixels |

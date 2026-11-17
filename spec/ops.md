@@ -38,6 +38,18 @@ Result:
 Op error codes: `bad_op` (unknown `op`, missing or wrong field, unknown field), `unknown_node`, `duplicate_id`,
 `invalid_id`, `unknown_type`, `unknown_input`; plus every validation code from [project-file.md](project-file.md).
 
+## Undo data
+
+`restore_ops(current, target)` builds a batch that turns `current` into `target`, touching only what differs:
+`remove_node` for nodes only in `current`; `add_node` (with `id`, `type`, `inputs`, `label`, `pos`) for nodes only in
+`target`; for nodes in both, `set_label`, `move_node`, `set_input` and `unset_input` for each differing field (an input
+that refs a removed node counts as unset); a node whose type differs is removed and added; `set_settings` for differing
+settings. Renames come out as remove + add plus ref updates. Node order is not restored (added nodes go last).
+
+For an applied batch with exact `before` and `after` (taken under the project lock), `undo = restore_ops(after,
+before)` and `redo = restore_ops(before, after)`. Because they only touch what the batch changed, other writers' edits
+made in between survive an undo; if those edits conflict (the node is gone), the undo batch is rejected like any other.
+
 ## Test cases
 
 | ID | Given | Expected |
@@ -68,4 +80,6 @@ Op error codes: `bad_op` (unknown `op`, missing or wrong field, unknown field), 
 | OP-24 | `slopc edit` with a rejected batch, `--json` | exit 1; `{ok: false, errors}`; file unchanged |
 | OP-25 | `slopc edit a.slopc.json -` with ops on stdin | applied |
 | OP-26 | `slopc edit` input that is a single op object, not an array | applied as a batch of one |
+| OP-28 | batches: add with refs; remove a referenced node; rename; set and unset inputs; label; move; settings | applying `undo` to the result gives the original (ignoring node order); applying `redo` to the original gives the result |
+| OP-29 | a batch, then an unrelated edit to another node, then its `undo` | the batch is reverted and the unrelated edit is kept |
 | OP-27 | 8 concurrent `slopc edit` processes each adding a node | all 8 nodes present (lock serialises) |
