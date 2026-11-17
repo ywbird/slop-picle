@@ -11,8 +11,9 @@ One file per area. A spec is written before its code, and changed before the cod
 | [cli.md](cli.md) | `slopc` commands, output, exit codes | M1, M2 |
 | [ops.md](ops.md) | edit operations and batches | M2 |
 | [mcp.md](mcp.md) | MCP tools, root sandbox | M2, M5 |
+| [server.md](server.md) | `slopc serve`: auth, API, events | M4, M5 |
+| [web.md](web.md) | web UI | M4 |
 
-Later: `server.md`, `web.md` (M4).
 
 ## Keywords
 
@@ -32,4 +33,4 @@ Every section ends with a table of test cases:
 - `SLOPC_UPDATE_GOLDEN=1 cargo test` rewrites golden images. A rewritten golden image is reviewed by eye before commit.
 
 Area prefixes: `PF` project file, `TY` types and catalog, `EV` evaluation, `GPU` GPU conventions,
-`N-<NODE>` nodes, `CLI` command line, `OP` edit operations, `MCP` MCP server.
+`N-<NODE>` nodes, `CLI` command line, `OP` edit operations, `MCP` MCP server, `SRV` server, `WEB` web UI.
