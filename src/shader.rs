@@ -69,6 +69,24 @@ fn grad_mix(c0: vec4<f32>, c1: vec4<f32>, f: f32, kind: u32) -> vec4<f32> {
 }
 ";
 
+/// `ENTRY` for generators with a UV map: each pixel is drawn as the pixel the map points to (spec/nodes.md#generator-modifiers).
+const UV_ENTRY: &str = "
+@vertex fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+    let uv = vec2<f32>(f32((i << 1u) & 2u), f32(i & 2u));
+    return vec4<f32>(uv * 2.0 - 1.0, 0.0, 1.0);
+}
+@fragment fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+    let px = vec2<i32>(pos.xy);
+    if (p.uv_map_info.z == 0u) { return shade(px); }
+    let size = vec2<f32>(p.out_info.xy);
+    let m = load_uv_map(vec2<i32>(floor((vec2<f32>(px) + 0.5) * vec2<f32>(p.uv_map_info.xy) / size)));
+    let uv = mix((vec2<f32>(px) + 0.5) / size, vec2<f32>(m.r, 1.0 - m.g), p.uv_mix.x);
+    var c = shade(vec2<i32>(floor(uv * size)));
+    c.a = c.a * m.a;
+    return c;
+}
+";
+
 /// CPU copies of the shader hash (spec/nodes.md#shared-definitions).
 pub fn hash(v: u32) -> u32 {
     let state = v.wrapping_mul(747796405).wrapping_add(2891336453);
@@ -144,8 +162,9 @@ pub fn module(def: &NodeDef, extras: &[&str], body: &str) -> String {
         fields.push(format!("    {e}: vec4<f32>,"));
     }
     format!(
-        "struct Params {{\n{}\n}}\n@group(0) @binding(0) var<uniform> p: Params;\n{bindings}{loaders}{HELPERS}{body}{ENTRY}",
-        fields.join("\n")
+        "struct Params {{\n{}\n}}\n@group(0) @binding(0) var<uniform> p: Params;\n{bindings}{loaders}{HELPERS}{body}{}",
+        fields.join("\n"),
+        if def.input("uv_map").is_some() { UV_ENTRY } else { ENTRY }
     )
 }
 

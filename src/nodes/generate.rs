@@ -1,6 +1,6 @@
 //! M3 generators (spec/nodes.md#m3-nodes).
 
-use super::{R, cos_sin, dim, out};
+use super::{R, cos_sin, dim, out, GEN_MASK, UV_MAP, UV_MIX};
 use crate::catalog::{Default as D, InputDef as I};
 use crate::eval::Ctx;
 use crate::shader;
@@ -22,6 +22,9 @@ pub const GRADIENT_IN: &[I] = &[
     I::new("radius", T::Number, D::Number(0.5), "Circular radius."),
     I::new("center", T::Vec2, D::Vec2([0.5, 0.5]), "Centre, as a fraction of the size."),
     I::new("uniform_ratio", T::Bool, D::Bool(true), "Keep circles round on non-square outputs."),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const GRADIENT_WGSL: &str = "
@@ -64,6 +67,9 @@ pub const SHAPE_IN: &[I] = &[
     I::new("shape_color", T::Color, D::Color("#ffffff"), "Fill colour."),
     I::new("background", T::Enum, D::Enum("none"), "Outside the shape: transparent or bg_color.").options(&["none", "solid"]),
     I::new("bg_color", T::Color, D::Color("#000000"), "Background colour when background is solid."),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const SHAPE_WGSL: &str = "
@@ -104,6 +110,9 @@ pub const CELLULAR_IN: &[I] = &[
     I::new("contrast", T::Number, D::Number(1.0), "Contrast around middle.").range(0.0, 4.0),
     I::new("middle", T::Number, D::Number(0.5), "Contrast pivot.").range(0.0, 1.0),
     I::new("inverted", T::Bool, D::Bool(false), "Invert the result."),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const CELLULAR_WGSL: &str = "
@@ -153,6 +162,9 @@ pub const CHECKER_IN: &[I] = &[
     I::new("position", T::Vec2, D::Vec2([0.5, 0.5]), "Origin, as a fraction of the size."),
     I::new("color_1", T::Color, D::Color("#ffffff"), "Odd cells."),
     I::new("color_2", T::Color, D::Color("#000000"), "Even cells."),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const CHECKER_WGSL: &str = "
@@ -186,6 +198,9 @@ pub const STRIPE_IN: &[I] = &[
     I::new("progress", T::Number, D::Number(0.5), "Phase of the stripes.").range(0.0, 1.0),
     I::new("color_1", T::Color, D::Color("#ffffff"), "First colour."),
     I::new("color_2", T::Color, D::Color("#000000"), "Second colour."),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const STRIPE_WGSL: &str = "

@@ -1,6 +1,6 @@
 //! M3 colour nodes (spec/nodes.md#m3-nodes).
 
-use super::{R, out, surf};
+use super::{R, out, surf, CHANNEL, INVERT_MASK, MASK, MASK_FEATHER, MIX};
 use crate::catalog::{Default as D, InputDef as I};
 use crate::eval::Ctx;
 use crate::shader;
@@ -51,7 +51,7 @@ pub fn color_adjust(ctx: &mut Ctx, v: &[Value]) -> R {
     same_size(ctx, v, COLOR_ADJUST_WGSL)
 }
 
-pub const INVERT_IN: &[I] = &[SURFACE_IN, I::new("include_alpha", T::Bool, D::Bool(false), "Invert alpha too.")];
+pub const INVERT_IN: &[I] = &[SURFACE_IN, I::new("include_alpha", T::Bool, D::Bool(false), "Invert alpha too."), MASK, MIX, INVERT_MASK, MASK_FEATHER, CHANNEL];
 
 const INVERT_WGSL: &str = "
 fn shade(px: vec2<i32>) -> vec4<f32> {
@@ -72,6 +72,11 @@ pub const COLOR_REPLACE_IN: &[I] = &[
     I::new("threshold", T::Number, D::Number(0.1), "HSV distance that counts as a match.").range(0.0, 1.0),
     I::new("multiply_alpha", T::Bool, D::Bool(true), "Multiply HSV by alpha before matching."),
     I::new("hard_replace", T::Bool, D::Bool(true), "Replace fully instead of blending by distance."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 // Ported from upstream shaders/sh_palette_replace.fsh (mode Order).
@@ -113,6 +118,11 @@ pub const COLORIZE_IN: &[I] = &[
     I::new("overflow", T::Enum, D::Enum("clamp"), "Outside the range: clamp or loop.").options(&["clamp", "loop"]),
     I::new("multiply_alpha", T::Bool, D::Bool(true), "Multiply the position by alpha."),
     I::new("keep_alpha", T::Bool, D::Bool(true), "Keep the input alpha."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 // Ported from upstream shaders/sh_colorize.fsh.
@@ -138,6 +148,11 @@ pub const GREYSCALE_IN: &[I] = &[
     SURFACE_IN,
     I::new("brightness", T::Number, D::Number(0.0), "Added before conversion.").range(-1.0, 1.0),
     I::new("contrast", T::Number, D::Number(1.0), "Multiplier before conversion.").range(-1.0, 4.0),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 // Ported from upstream shaders/sh_greyscale.fsh.

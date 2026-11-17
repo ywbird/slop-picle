@@ -245,10 +245,11 @@ impl Evaluator {
             }
         }
         let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources };
-        let outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
+        let mut outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
             NodeError::Eval(m) => Error::at("eval_error", id, None, m),
             NodeError::Gpu(m) => Error::at("gpu_unavailable", id, None, m),
         })?;
+        crate::nodes::modify(gnode.def, &values, &mut outputs);
         let mut bytes = 0;
         for v in &outputs {
             if let Value::Surface(s) = v {

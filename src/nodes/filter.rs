@@ -1,6 +1,6 @@
 //! M3 filters (spec/nodes.md#m3-nodes).
 
-use super::{R, out, surf};
+use super::{R, out, surf, CHANNEL, INVERT_MASK, MASK, MASK_FEATHER, MIX};
 use crate::catalog::{Default as D, InputDef as I};
 use crate::eval::Ctx;
 use crate::shader;
@@ -28,6 +28,11 @@ pub const BLUR_IN: &[I] = &[
     I::new("size", T::Number, D::Number(8.0), "Blur size in pixels.").min(0.0),
     I::new("override_color", T::Bool, D::Bool(false), "Replace colour, keep the blurred alpha."),
     I::new("color", T::Color, D::Color("#000000"), "Colour for override_color."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 const BLUR_WGSL: &str = "
@@ -72,6 +77,10 @@ pub const OUTLINE_IN: &[I] = &[
     I::new("start", T::Int, D::Int(0), "Gap between the shape and the outline.").min(0.0),
     I::new("threshold", T::Number, D::Number(1.0), "Alpha threshold for solid/empty.").range(0.0, 1.0),
     I::new("color", T::Color, D::Color("#ffffff"), "Outline colour."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
 ];
 
 const OUTLINE_WGSL: &str = "
@@ -114,6 +123,10 @@ pub const SHADOW_IN: &[I] = &[
     I::new("grow", T::Int, D::Int(3), "Dilate the shadow by this many pixels.").range(0.0, 16.0),
     I::new("blur", T::Int, D::Int(3), "Blur size of the shadow.").range(0.0, 16.0),
     I::new("shift", T::Vec2, D::Vec2([0.0, 0.0]), "Shadow offset in pixels."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
 ];
 
 /// One separable Gaussian pass over an alpha map (outside counts as 0).
@@ -187,6 +200,10 @@ pub const POSTERIZE_IN: &[I] = &[
     I::new("steps", T::Int, D::Int(4), "Levels per channel without a palette.").range(2.0, 16.0),
     I::new("gamma", T::Number, D::Number(1.0), "Gamma for steps.").range(0.0, 2.0),
     I::new("posterize_alpha", T::Bool, D::Bool(true), "Posterize alpha as well."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
 ];
 
 // Ported from upstream shaders/sh_posterize.fsh and sh_posterize_palette.fsh (RGB space, range 0..1).
@@ -232,6 +249,11 @@ pub const DITHER_IN: &[I] = &[
     I::new("color_type", T::Enum, D::Enum("palette"), "Quantise to steps or to a palette.").options(&["greyscale", "palette"]),
     I::new("steps", T::Int, D::Int(4), "Levels for greyscale.").range(2.0, 16.0),
     I::new("palette", T::Palette, D::Json(BW), "Colours for palette."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 // Ported from upstream shaders/sh_dither.fsh (RGB distance instead of LAB).
@@ -306,6 +328,11 @@ pub const THRESHOLD_IN: &[I] = &[
     I::new("alpha_threshold", T::Number, D::Number(0.5), "Alpha edge.").range(0.0, 1.0),
     I::new("alpha_smoothness", T::Number, D::Number(0.0), "Soft edge width.").range(0.0, 1.0),
     I::new("alpha_invert", T::Bool, D::Bool(false), "Invert the alpha result."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 const THRESHOLD_WGSL: &str = "
@@ -341,6 +368,11 @@ pub const DISPLACE_IN: &[I] = &[
     I::new("strength", T::Number, D::Number(1.0), "Displacement multiplier."),
     I::new("mid_value", T::Number, D::Number(0.5), "Map brightness meaning no displacement.").range(0.0, 1.0),
     I::new("position", T::Vec2, D::Vec2([1.0, 0.0]), "Displacement vector, as a fraction of the size."),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
+    CHANNEL,
 ];
 
 const DISPLACE_WGSL: &str = "

@@ -1,6 +1,6 @@
 //! M3 transforms (spec/nodes.md#m3-nodes).
 
-use super::{R, dim, out, surf};
+use super::{R, dim, out, surf, CHANNEL, INVERT_MASK, MASK, MASK_FEATHER, MIX};
 use crate::catalog::{Default as D, InputDef as I};
 use crate::eval::Ctx;
 use crate::shader;
@@ -68,7 +68,7 @@ pub fn crop(ctx: &mut Ctx, v: &[Value]) -> R {
 
 // ---------- flip ----------
 
-pub const FLIP_IN: &[I] = &[SURFACE_IN, I::new("axis", T::Int, D::Int(1), "Bit mask: 1 = x, 2 = y.").range(0.0, 3.0)];
+pub const FLIP_IN: &[I] = &[SURFACE_IN, I::new("axis", T::Int, D::Int(1), "Bit mask: 1 = x, 2 = y.").range(0.0, 3.0), MASK, MIX, INVERT_MASK, MASK_FEATHER, CHANNEL];
 
 const FLIP_WGSL: &str = "
 fn shade(px: vec2<i32>) -> vec4<f32> {
@@ -91,6 +91,10 @@ pub const OFFSET_IN: &[I] = &[
     SURFACE_IN,
     I::new("x_offset", T::Number, D::Number(0.0), "Horizontal shift as a fraction of the width (wraps).").range(-1.0, 1.0),
     I::new("y_offset", T::Number, D::Number(0.0), "Vertical shift as a fraction of the height (wraps).").range(-1.0, 1.0),
+    MASK,
+    MIX,
+    INVERT_MASK,
+    MASK_FEATHER,
 ];
 
 const OFFSET_WGSL: &str = "

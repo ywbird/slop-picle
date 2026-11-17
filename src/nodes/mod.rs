@@ -19,6 +19,104 @@ type R = Result<Vec<Value>, NodeError>;
 
 const SURFACE_OUT: &[O] = &[O { name: "surface_out", ty: T::Surface }];
 
+// ---------- shared modifiers (spec/nodes.md#shared-modifiers) ----------
+
+const MASK: I = I::new("mask", T::Surface, D::None, "Where the effect applies: mean of rgb times alpha.");
+const MIX: I = I::new("mix", T::Number, D::Number(1.0), "Blend from the input (0) to the result (1).").range(0.0, 1.0);
+const INVERT_MASK: I = I::new("invert_mask", T::Bool, D::Bool(false), "Invert the mask.");
+const MASK_FEATHER: I = I::new("mask_feather", T::Number, D::Number(0.0), "Blur the mask by this size.").range(0.0, 32.0);
+const CHANNEL: I = I::new("channel", T::Int, D::Int(15), "Channels changed, bit mask: 1 red, 2 green, 4 blue, 8 alpha.").range(0.0, 15.0);
+const UV_MAP: I = I::new("uv_map", T::Surface, D::None, "Where each pixel is drawn from: red is x, green is 1 − y.");
+const UV_MIX: I = I::new("uv_mix", T::Number, D::Number(1.0), "How far the UV map moves pixels.").range(0.0, 1.0);
+const GEN_MASK: I = I::new("mask", T::Surface, D::None, "Output alpha times the mask (mean of rgb times alpha).");
+
+/// Nearest-neighbour index of output pixel `x` (of `n`) in a source `size` pixels long.
+fn stretch(x: u32, n: u32, size: u32) -> u32 {
+    (((x as f64 + 0.5) * size as f64 / n as f64) as u32).min(size - 1)
+}
+
+/// Mask strength, mean of rgb times alpha, at the mask's size; blurred by `feather` (outside counts as 0).
+fn strength(m: &Surface, feather: f64) -> Vec<f64> {
+    let s: Vec<f64> = m.data.chunks_exact(4).map(|p| (p[0] as f64 + p[1] as f64 + p[2] as f64) / 765.0 * p[3] as f64 / 255.0).collect();
+    let (r, sigma) = filter::kernel(feather);
+    if r == 0 {
+        return s;
+    }
+    let (w, h) = (m.width as usize, m.height as usize);
+    filter::blur_alpha(&filter::blur_alpha(&s, w, h, r, sigma, true), w, h, r, sigma, false)
+}
+
+/// Upstream `mask_apply_input` then `channel_apply`: `e` is the node's result for input `o`.
+fn filter_modifiers(o: &Surface, e: &Surface, mask: Option<&Surface>, mix: f64, invert: bool, feather: f64, channel: i64) -> Surface {
+    let (w, h) = (e.width, e.height);
+    let mut out = e.clone();
+    let f = |c: u8| c as f64 / 255.0;
+    if mask.is_some() || mix != 1.0 {
+        let ms = mask.map(|m| (m, strength(m, feather)));
+        for y in 0..h {
+            for x in 0..w {
+                let m = ms.as_ref().map_or(1.0, |(m, s)| {
+                    let v = s[(stretch(y, h, m.height) * m.width + stretch(x, w, m.width)) as usize];
+                    if invert { 1.0 - v } else { v }
+                });
+                let t = (m * mix).clamp(0.0, 1.0);
+                let ov = o.pixel(stretch(x, w, o.width), stretch(y, h, o.height)).map(f);
+                let ev = e.pixel(x, y).map(f);
+                let mut r = [0, 1, 2, 3].map(|c| ov[c] + (ev[c] - ov[c]) * t);
+                if ov[3] == 0.0 {
+                    r[..3].copy_from_slice(&ev[..3]);
+                }
+                if ev[3] == 0.0 {
+                    r[..3].copy_from_slice(&ov[..3]);
+                }
+                let i = ((y * w + x) * 4) as usize;
+                for (c, v) in r.iter().enumerate() {
+                    out.data[i + c] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                }
+            }
+        }
+    }
+    if channel != 15 {
+        for y in 0..h {
+            for x in 0..w {
+                let ov = if x < o.width && y < o.height { o.pixel(x, y) } else { [0; 4] };
+                let i = ((y * w + x) * 4) as usize;
+                for (c, v) in ov.iter().enumerate() {
+                    if channel & (1 << c) == 0 {
+                        out.data[i + c] = *v;
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Apply the shared modifiers to a node's first output; the UV map is applied in the shader (`shader::module`).
+pub fn modify(def: &NodeDef, v: &[Value], outputs: &mut [Value]) {
+    let get = |name: &str| def.input(name).map(|(i, _)| &v[i]);
+    let Some(Value::Surface(e)) = outputs.first() else { return };
+    let mask = get("mask").and_then(Value::surface).map(|m| m.as_ref());
+    if let Some(mix) = get("mix") {
+        let Some(o) = def.inputs.iter().position(|i| i.ty == T::Surface).and_then(|i| v[i].surface()) else { return };
+        let channel = get("channel").map_or(15, |c| c.num() as i64);
+        let (mix, invert, feather) = (mix.num(), get("invert_mask") == Some(&Value::Bool(true)), get("mask_feather").map_or(0.0, Value::num));
+        if mask.is_some() || mix != 1.0 || channel != 15 {
+            outputs[0] = Value::Surface(Arc::new(filter_modifiers(o, e, mask, mix, invert, feather, channel)));
+        }
+    } else if let (Some(m), Some(_)) = (mask, def.input("uv_map")) {
+        let s = strength(m, 0.0);
+        let mut out = e.as_ref().clone();
+        for y in 0..out.height {
+            for x in 0..out.width {
+                let i = ((y * out.width + x) * 4 + 3) as usize;
+                out.data[i] = (out.data[i] as f64 * s[(stretch(y, out.height, m.height) * m.width + stretch(x, out.width, m.width)) as usize]).round() as u8;
+            }
+        }
+        outputs[0] = Value::Surface(Arc::new(out));
+    }
+}
+
 pub fn dim(v: &Value) -> [u32; 2] {
     match v {
         Value::Dimension(d) => *d,
@@ -64,6 +162,9 @@ const NOISE_IN: &[I] = &[
     I::new("color_r_range", T::Vec2, D::Vec2([0.0, 1.0]), "Range of red (or hue).").range(0.0, 1.0),
     I::new("color_g_range", T::Vec2, D::Vec2([0.0, 1.0]), "Range of green (or saturation).").range(0.0, 1.0),
     I::new("color_b_range", T::Vec2, D::Vec2([0.0, 1.0]), "Range of blue (or value).").range(0.0, 1.0),
+    UV_MAP,
+    UV_MIX,
+    GEN_MASK,
 ];
 
 const NOISE_WGSL: &str = "
