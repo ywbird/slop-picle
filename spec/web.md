@@ -1,6 +1,6 @@
 # Web UI
 
-Svelte 5 + Svelte Flow (`@xyflow/svelte`), built with Vite and bun into `web/dist`, embedded in `slopc serve`.
+Svelte 5 + Svelte Flow (`@xyflow/svelte`), built with Vite and bun into `web/dist`, embedded in `picle serve`.
 All rendering happens on the server; the UI shows PNGs from `/api/render`. Layout and naming follow upstream's
 panels loosely: graph, node popups, settings.
 
@@ -98,7 +98,7 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-07 | `thumbUrl` | contains the encoded path, node and key |
 | WEB-07b | `thumbFor` with one URL map: same node and key at frames 0 and 5; then another key | the same URL; then a new URL |
 | WEB-08 | `bun run build` | succeeds; `web/dist/index.html` exists |
-| WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `slopc edit` adds a node that appears without a reload |
+| WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `picle edit` adds a node that appears without a reload |
 | WEB-10 | headless Chromium: connect, change a number widget (in the popup) | the file on disk has the new ref and value |
 | WEB-12 | headless Chromium: drag a node slowly over 30 mouse moves | the node follows the cursor on every move; no project reload during the drag; exactly one `move_node` after the drop (regression: the node flickered back to its old position) |
 | WEB-13 | `duplicateOp` on a node with inputs, label and pos | `add_node` with the same type, inputs, label; pos + 40 |
@@ -112,7 +112,7 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-21 | headless Chromium: select a node, press Delete | the node is gone from the file |
 | WEB-22 | headless Chromium: box-select two nodes, press Delete | both gone, in one `/api/ops` request |
 | WEB-23 | headless Chromium: after WEB-22, Ctrl+Z, then Ctrl+Shift+Z, then the undo button | nodes back / gone again / back |
-| WEB-24 | headless Chromium: change a value, `slopc edit` adds a node, Ctrl+Z | the value is back to before; the added node is still there |
+| WEB-24 | headless Chromium: change a value, `picle edit` adds a node, Ctrl+Z | the value is back to before; the added node is still there |
 | WEB-27 | headless Chromium, 24-frame animated chain: play for more than one loop, sampling the timeline and the `out` thumbnail | the displayed image's key always equals the key of the frame the timeline shows; the frame number never skips; frame 0 after the loop has the same pixels as at the start (regression: images lagged the timeline) |
 | WEB-28 | headless Chromium: step 5 frames with the next button | 5 `/api/project` requests and no new `/api/events` connection (regression: each frame change reopened the stream and reloaded twice, which could stall playback) |
 | WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` (in the popup) | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |

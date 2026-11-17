@@ -1,13 +1,13 @@
 # Project file
 
-A project is one UTF-8 JSON file named `*.slopc.json`. It is the source of truth:
+A project is one UTF-8 JSON file named `*.picle.json`. It is the source of truth:
 the CLI, MCP and the server read it from disk and write it back.
 
 ## Format
 
 ```json
 {
-  "slopc": 1,
+  "picle": 1,
   "settings": { "width": 32, "height": 32, "frames": 1, "fps": 12 },
   "nodes": {
     "bg":  { "type": "solid", "inputs": { "color": "#1a1c2c" } },
@@ -20,7 +20,7 @@ the CLI, MCP and the server read it from disk and write it back.
 
 | Key | Type | Required | Rule |
 |---|---|---|---|
-| `slopc` | integer | yes | format version, must be `1` |
+| `picle` | integer | yes | format version, must be `1` |
 | `settings` | object | no | missing keys take their defaults |
 | `nodes` | object | no | node id → node; missing means no nodes |
 
@@ -77,7 +77,7 @@ Each error is:
 | Code | When |
 |---|---|
 | `parse_error` | not valid JSON, or the wrong JSON type at a fixed key (e.g. `nodes` is an array) |
-| `unsupported_version` | `slopc` is missing or not `1` |
+| `unsupported_version` | `picle` is missing or not `1` |
 | `unknown_key` | a key not defined in this spec |
 | `invalid_id` | a node id breaks the id pattern |
 | `unknown_type` | `type` is not in the catalog |
@@ -111,12 +111,12 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 
 | ID | Given | Expected |
 |---|---|---|
-| PF-01 | `{"slopc":1}` | valid; settings 32×32, 1 frame, 12 fps; no nodes |
+| PF-01 | `{"picle":1}` | valid; settings 32×32, 1 frame, 12 fps; no nodes |
 | PF-02 | the example in this file | valid; 2 nodes; `out.surface_in` is a ref to `bg` output `surface_out` (first output) |
 | PF-03 | `not json` | one error `parse_error` |
-| PF-04 | `{"slopc":2}` | one error `unsupported_version` |
+| PF-04 | `{"picle":2}` | one error `unsupported_version` |
 | PF-05 | `{}` | one error `unsupported_version` |
-| PF-06 | `{"slopc":1,"extra":true}` | `unknown_key` |
+| PF-06 | `{"picle":1,"extra":true}` | `unknown_key` |
 | PF-07 | node with key `note` | `unknown_key` with `node` set |
 | PF-08 | node id `Noise` and node id `1a` | two `invalid_id` errors |
 | PF-09 | node `type: "nope"` | `unknown_type`, no input errors for that node |

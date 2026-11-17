@@ -43,7 +43,7 @@ the frame it reads, or at every frame when one of its parameters comes from a re
 
 - Rendering uses `wgpu` with WGSL shaders, headless (no window, no display server).
 - Backends: Vulkan, Metal, DX12; GL is not used. The adapter is the first one wgpu offers with default power preference;
-  `SLOPC_ADAPTER=<substring>` picks the first adapter whose name contains the substring.
+  `PICLE_ADAPTER=<substring>` picks the first adapter whose name contains the substring.
 - If no adapter is found, commands that render fail with `gpu_unavailable` (CLI exit code 4, see [cli.md](cli.md)).
   Commands that do not render (`validate`, `nodes`, ...) never open the GPU.
 - Textures are `Rgba8Unorm`. Shaders read texels with `textureLoad` at integer coordinates, not samplers.
@@ -83,7 +83,7 @@ the frame it reads, or at every frame when one of its parameters comes from a re
 | EV-11 | a project with an unconnected `blend` (missing `background`) and a separate solid target | target evaluates fine |
 | EV-12 | target depends on a node with a missing required input | error `missing_input` naming that node |
 | EV-10 | ref value out of range (an M3 `number` node output of 5 into `blend.opacity`) | clamped to 1 |
-| GPU-01 | `SLOPC_ADAPTER=no-such-gpu` and render | `gpu_unavailable` |
-| GPU-02 | `validate` with `SLOPC_ADAPTER=no-such-gpu` | succeeds; the GPU is never opened |
+| GPU-01 | `PICLE_ADAPTER=no-such-gpu` and render | `gpu_unavailable` |
+| GPU-02 | `validate` with `PICLE_ADAPTER=no-such-gpu` | succeeds; the GPU is never opened |
 | GPU-03 | upload a 3×2 surface with distinct pixels and read it back | bytes identical, including alpha 0 pixels with non-zero RGB |
 | GPU-04 | same project rendered twice in separate processes | identical PNG bytes |

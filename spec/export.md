@@ -1,7 +1,7 @@
 # Export
 
 Upstream: Pixel Composer `scripts/node_export` (`Node_Export`) and `scripts/node_render_sprite_sheet`
-(`Node_Render_Sprite_Sheet`). By the earlier decision, a slopc project has no Export node: the export command (CLI,
+(`Node_Render_Sprite_Sheet`). By the earlier decision, a picle project has no Export node: the export command (CLI,
 MCP, server, web UI) picks the node, the frames and the file. The sprite sheet is a node, as upstream.
 
 ## Export
@@ -10,7 +10,7 @@ MCP, server, web UI) picks the node, the frames and the file. The sprite sheet i
 
 | Option | Default | Rule |
 |---|---|---|
-| `node` | the single `output` node | as `slopc render` (`no_target`, `ambiguous_target`) |
+| `node` | the single `output` node | as `picle render` (`no_target`, `ambiguous_target`) |
 | `out` | required | file name template, see below; the extension picks the format |
 | `range` | all frames | `[a, b]`, 1-based and inclusive (upstream "Frame range"); `a ≥ 1`, `a ≤ b ≤ frames`, else `out_of_range` |
 | `step` | 1 | ≥ 1 (upstream "Frame step"): frames `a − 1`, `a − 1 + step`, … ≤ `b − 1` |
@@ -89,12 +89,12 @@ an empty range) give a 1×1 transparent surface; a sheet over the surface size l
 Deviation: upstream has no single rule here. It computes the range one way when it sizes the sheet (`animationInit`:
 negative start `frames − 2 + a`, exclusive end `b`) and another way when it draws (`animationRender`: inclusive end
 `b + 1`), sizes for `floor((end − start)/step)` cells so the last frame can be clipped, places frames by their own size
-rather than a common cell, and aligns against the whole sheet including padding. slopc uses the one rule above for
+rather than a common cell, and aligns against the whole sheet including padding. picle uses the one rule above for
 sizing and drawing, counts every used frame and aligns inside the cell.
 
 ## CLI
 
-`slopc export <file> -o <out> [--node ID] [--range A:B] [--step N] [--begin N] [--scale K] [--fps F] [--frame N] [--json]`
+`picle export <file> -o <out> [--node ID] [--range A:B] [--step N] [--begin N] [--scale K] [--fps F] [--frame N] [--json]`
 
 Exit codes as [cli.md](cli.md): 1 invalid project, evaluation error or `out_of_range`; 2 bad command line or `bad_path`;
 3 I/O; 4 no GPU. `--json` prints `{ "ok": true, "files": [...], "frames": [...] }`.
@@ -139,5 +139,5 @@ show in the dialog. Escape or × closes it.
 | N-SHEET-07 | frames of animated size 2×2 and 4×4, `alignment middle` (horizontal) | cell 4×4; the 2×2 frame at y = 1 |
 | N-SHEET-08 | one evaluator: sheet of 4 frames, then the source's key at frame 3 changes | the sheet's last cell changes |
 | MCP-14 | `export` with `out: "exports/a.gif"`; `out: "../a.gif"` | file written, listed; `path_outside_root` |
-| SRV-23 | `POST /api/export` a PNG sequence, then `GET /api/file` one of them; `GET /api/file?path=a.slopc.json` | files written, 200 `image/png` attachment equal to the file; 400 `bad_path` |
+| SRV-23 | `POST /api/export` a PNG sequence, then `GET /api/file` one of them; `GET /api/file?path=a.picle.json` | files written, 200 `image/png` attachment equal to the file; 400 `bad_path` |
 | WEB-29 | headless Chromium: Export dialog, GIF, Export | the GIF exists in the root; its download link returns a GIF |

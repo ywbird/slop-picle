@@ -1,4 +1,4 @@
-# slopc — plan
+# picle — plan
 
 Node-based procedural pixel-art compositor, built on the ideas of
 [Pixel Composer](https://github.com/Ttanasart-pt/Pixel-Composer) (MIT, GameMaker, about 700 nodes).
@@ -20,7 +20,7 @@ Confirmed with the user on 2026-11-17.
 | Deployment | reachable over LAN or remotely, protected by a token |
 | Upstream fidelity | ambiguities follow Pixel Composer; deviations are listed in `spec/nodes.md` |
 | Random numbers | integer PCG hash, not upstream `fract(sin)`, so golden tests are exact on every GPU |
-| Output node | `output` node kept (not upstream); `slopc render -o` picks the path |
+| Output node | `output` node kept (not upstream); `picle render -o` picks the path |
 | Blend placement | upstream: foreground centred on `position` (default centre); replaces the top-left decision |
 | MVP scope | 2D still images, about 30 nodes, PNG output. The evaluator takes a frame number; keyframes and a timeline come later |
 | Language | English for docs, code, comments and commits |
@@ -43,11 +43,11 @@ Chosen without asking. Say so if any is wrong.
 ```
 CLI        MCP (stdio)     MCP (HTTP /mcp)    web UI
  │              │                 │             │ /api, SSE
- │              │                 └─slopc serve─┘
+ │              │                 └─picle serve─┘
  └──────────────┴───────┬────────────────┘
                       core    project · ops · catalog · validate · eval · gpu
                         │     locked, atomic writes
-                  *.slopc.json ── file watch ──► slopc serve ──► web UI
+                  *.picle.json ── file watch ──► picle serve ──► web UI
 ```
 
 - `project`: the file model. Saving takes a file lock and renames atomically.
@@ -83,8 +83,8 @@ Every milestone starts by writing the spec for its areas in `spec/`, then the te
 ### M1 — Headless core and CLI
 
 - [x] Spec: project file, types and catalog, evaluation and GPU, M1 nodes, CLI
-- [x] Scaffold: Cargo crate `slopc`, `.gitignore`
-- [x] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
+- [x] Scaffold: Cargo crate `picle`, `.gitignore`
+- [x] Project model: load, save (file lock + atomic rename), `picle schema` prints the JSON Schema
 - [x] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
 - [x] Validation: unknown type or input, type mismatch, cycle, dangling ref, out-of-range value, caps on surface size and node count
 - [x] GPU: headless wgpu device, shader-node helper (uniforms generated from the catalog entry), read back to PNG
@@ -93,16 +93,16 @@ Every milestone starts by writing the spec for its areas in `spec/`, then the te
 - [x] CLI: `new`, `nodes`, `show`, `validate`, `render`
 - [x] Golden-image tests with a per-channel tolerance
 
-Done when `slopc render examples/hello.slopc.json -o hello.png` matches its golden image.
+Done when `picle render examples/hello.picle.json -o hello.png` matches its golden image.
 
 ### M2 — Editing and MCP over stdio (AI can work)
 
 - [x] Ops: `add_node`, `remove_node`, `rename_node`, `move_node`, `set_input`, `unset_input`, `set_settings`
-- [x] CLI: `slopc edit <file> <ops.json | ->`
-- [x] `slopc mcp` with six tools: `list_projects`, `create_project`, `read_project`, `edit_project`, `list_node_types`, `render`
+- [x] CLI: `picle edit <file> <ops.json | ->`
+- [x] `picle mcp` with six tools: `list_projects`, `create_project`, `read_project`, `edit_project`, `list_node_types`, `render`
 - [x] `render` returns the PNG scaled up nearest-neighbour, plus stats (size, opaque bounding box, colour count)
 - [x] Root sandbox: every path resolves inside the root, tested against `..` and symlink escapes
-- [x] Round-trip test: spawn `slopc mcp`, then create, edit and render
+- [x] Round-trip test: spawn `picle mcp`, then create, edit and render
 
 Done when an agent builds a sprite from an empty project using MCP tools only.
 
@@ -114,7 +114,7 @@ Done when all 33 nodes pass.
 
 ### M4 — Server and web UI (people can work)
 
-- [x] `slopc serve --root --host --port --token`: catalog, project list / create / read, ops, render PNG
+- [x] `picle serve --root --host --port --token`: catalog, project list / create / read, ops, render PNG
 - [x] Token auth: bearer header for API clients, cookie for the browser. A generated token is printed as a ready-to-open URL
 - [x] Checks and limits: `Origin` / `Host` validation, request size cap
 - [x] File watch pushed over SSE, with per-node output hashes so only changed thumbnails reload
@@ -125,7 +125,7 @@ Done when a person edits a project in the browser, and an edit made through MCP 
 
 ### M5 — Remote
 
-- [x] `/mcp` Streamable HTTP in `slopc serve`: same tools, same token
+- [x] `/mcp` Streamable HTTP in `picle serve`: same tools, same token
 - [x] Upload PNG assets from the web UI
 
 Done when an agent on another machine connects to `/mcp` with the token and renders, and requests without the token are rejected.
@@ -151,7 +151,7 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] No compatibility: old `*.slopc.json` files are not read; the examples move to the new name
 
 - [x] 예시 프로젝트 하나 만들어줘: 3d 김치 (commit 354d8af)
-  - [x] `examples/kimchi.slopc.json`, 64×64, 24 frames at 12 fps: a white porcelain bowl of cut napa cabbage kimchi in kimchi juice on a turntable; the heap is sprite-stacked from a turning height map (14 layers, squashed for a 3/4 view), lit from the upper left after turning, snapped to a kimchi palette. Accepted ("김치는 이제 됐고")
+  - [x] `examples/kimchi.picle.json`, 64×64, 24 frames at 12 fps: a white porcelain bowl of cut napa cabbage kimchi in kimchi juice on a turntable; the heap is sprite-stacked from a turning height map (14 layers, squashed for a 3/4 view), lit from the upper left after turning, snapped to a kimchi palette. Accepted ("김치는 이제 됐고")
 
 - [x] 왜 한 루프가 끝나고 처음으로 돌아왔는데 루프가 시작할때랑 다르게 생긴거야? webui만 그런거야? 그렇다면 고쳐봐 (commit b65e76e, commit 9bc6da0)
   - Cause (measured): web UI only. Playback advanced the frame number on a timer while thumbnails changed only after a `/api/project` round trip plus a render per thumbnail (~82 ms each on the debug server); every thumbnail URL carried the frame, so even static nodes reloaded each frame. In two loops the `out` thumbnail showed 4 of 24 frames and was blank in 138 of 153 samples; at the wrap the timeline said 0 while thumbnails still requested frame 23. Server output is deterministic (frame 0 identical before and after rendering all other frames, equal to the CLI).
@@ -162,9 +162,9 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Areas, in order: animation (keyframes on inputs, Animation nodes, timeline and playback), export (PNG sequence, GIF, sprite sheet), then completing the 33 existing nodes (left-out inputs, all blend modes, gradient blends)
   - [x] One area at a time: spec, tests, code, commit, then report before the next
   - [x] Area 1, animation: keyframed inputs (upstream format and easing), `set_key`/`remove_key`, wiggler, fn_ease, fn_smoothstep, fn_math, revert, anim_speed, rate_remap, delay, anim_loop, frame-aware API, timeline and key buttons (commit 4d30ad6, commit 2f4677a)
-  - [x] Area 2, export: `slopc export` (PNG image, `%f` sequence, GIF, APNG), MCP `export`, `POST /api/export` and `GET /api/file`, web export dialog with download links, `render_sprite_sheet` node (commit 264a0ff, commit a1e8719, commit 1eef12a)
-    - [x] Following upstream Node_Export and Node_Render_Sprite_Sheet, within the earlier decision that the project has no Export node (the export command picks the path): `slopc export` / MCP `export` / server `POST /api/export` write PNG (single or `%f` sequence), GIF and APNG into the project root; the web UI has an export dialog with download links; `render_sprite_sheet` is a node. WebP/MP4/WebM/JPG are left out (no encoder without ffmpeg)
-    - To confirm: upstream's sprite sheet computes its custom range one way when sizing and another when drawing (negative values and the end frame disagree), so slopc uses one rule: 1-based inclusive, 0 = first/last, -1 = last frame (spec/export.md, Deviation)
+  - [x] Area 2, export: `picle export` (PNG image, `%f` sequence, GIF, APNG), MCP `export`, `POST /api/export` and `GET /api/file`, web export dialog with download links, `render_sprite_sheet` node (commit 264a0ff, commit a1e8719, commit 1eef12a)
+    - [x] Following upstream Node_Export and Node_Render_Sprite_Sheet, within the earlier decision that the project has no Export node (the export command picks the path): `picle export` / MCP `export` / server `POST /api/export` write PNG (single or `%f` sequence), GIF and APNG into the project root; the web UI has an export dialog with download links; `render_sprite_sheet` is a node. WebP/MP4/WebM/JPG are left out (no encoder without ffmpeg)
+    - To confirm: upstream's sprite sheet computes its custom range one way when sizing and another when drawing (negative values and the end frame disagree), so picle uses one rule: 1-based inclusive, 0 = first/last, -1 = last frame (spec/export.md, Deviation)
   - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
     - [x] Scope, following upstream: every upstream input of the 33 nodes (about 200, counted from upstream's `newInput` lists), in steps, each with spec, tests and commits
     - [x] 3.1 all 25 upstream blend modes, shared by every node with a blend mode (commit 9dcbeb4)
@@ -219,7 +219,7 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Unknown keys are errors; nodes may have an optional `label` string
   - [x] ~~`blend` puts the foreground at the top-left, with no position input~~ (replaced: follows upstream `position`)
   - [x] `transform` keeps the input size; content moved outside is clipped
-  - [x] `slopc new` creates a project with no nodes
+  - [x] `picle new` creates a project with no nodes
   - [x] Limits: 4096 px per side, 2048² px per surface, 1000 nodes
 - [x] From now on, resolve ambiguities by following the original project (Pixel Composer) first
   - [x] Re-check the M1 spec and the unasked "Assumptions" against upstream now; keep user-confirmed decisions

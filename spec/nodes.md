@@ -76,7 +76,7 @@ On `noise`, `gradient`, `shape`, `cellular`, `checker`, `stripe`, as upstream.
 
 With a `uv_map`, output pixel `p` is drawn as the pixel at `floor(mix(uv, (r, 1 − g), uv_mix) · size)`, where
 `uv = (p + 0.5)/size` and `(r, g, b, a)` is the map pixel stretched to the output size, and its alpha is multiplied by
-`a` (upstream `getUVA`). Deviation: upstream samples at the remapped position itself; slopc snaps it to a pixel. With
+`a` (upstream `getUVA`). Deviation: upstream samples at the remapped position itself; picle snaps it to a pixel. With
 a `mask`, the output alpha is multiplied by `(r + g + b)/3 · a` of the stretched mask (`mask_apply_empty`).
 
 | ID | Given | Expected |
@@ -388,7 +388,7 @@ Not an upstream node (see above).
 |---|---|
 | `surface_out` | surface, equal to `surface_in` |
 
-Marks what `slopc render` writes when no `--node` is given (see [cli.md](cli.md)).
+Marks what `picle render` writes when no `--node` is given (see [cli.md](cli.md)).
 
 | ID | Given | Expected |
 |---|---|---|
@@ -968,7 +968,7 @@ change how upstream draws and edits the value.
 | `value` | number | 0 | |
 | `integer` | bool | false | |
 
-`integer` rounds the value (upstream also makes the output an integer; slopc keeps `number`).
+`integer` rounds the value (upstream also makes the output an integer; picle keeps `number`).
 
 | Output | Type |
 |---|---|

@@ -1,7 +1,7 @@
-# slopc
+# picle
 
 Node-based procedural pixel-art compositor inspired by [Pixel Composer](https://github.com/Ttanasart-pt/Pixel-Composer).
-Projects are `*.slopc.json` files. AI agents edit them through MCP or the CLI; people use the web UI. Rendering runs
+Projects are `*.picle.json` files. AI agents edit them through MCP or the CLI; people use the web UI. Rendering runs
 headless on the GPU (wgpu).
 
 ## Build
@@ -16,29 +16,29 @@ A GPU with Vulkan, Metal or DX12 is required for rendering (on Linux without a G
 ## Use
 
 ```sh
-slopc new art.slopc.json --width 32 --height 32
-slopc nodes                      # node types; `slopc nodes blend` for inputs
-slopc edit art.slopc.json ops.json
-slopc render art.slopc.json -o art.png --scale 8
-slopc export art.slopc.json -o art.gif --scale 4      # or .apng, or art_%3f.png for one PNG per frame
-slopc serve --root .             # web UI; open the printed URL (it carries the token)
-slopc serve --host 0.0.0.0       # reachable from the LAN; put TLS in front for untrusted networks
+picle new art.picle.json --width 32 --height 32
+picle nodes                      # node types; `picle nodes blend` for inputs
+picle edit art.picle.json ops.json
+picle render art.picle.json -o art.png --scale 8
+picle export art.picle.json -o art.gif --scale 4      # or .apng, or art_%3f.png for one PNG per frame
+picle serve --root .             # web UI; open the printed URL (it carries the token)
+picle serve --host 0.0.0.0       # reachable from the LAN; put TLS in front for untrusted networks
 ```
 
 MCP over stdio (for example in an agent's MCP config):
 
 ```json
-{ "command": "slopc", "args": ["mcp", "--root", "/path/to/projects"] }
+{ "command": "picle", "args": ["mcp", "--root", "/path/to/projects"] }
 ```
 
-MCP over HTTP: `http://<host>:7420/mcp` with `Authorization: Bearer <token>` while `slopc serve` runs.
+MCP over HTTP: `http://<host>:7420/mcp` with `Authorization: Bearer <token>` while `picle serve` runs.
 
 ## Develop
 
 ```sh
 cargo test                       # core, CLI, MCP, server
 cd web && bun test src           # UI logic
-cd web && bun run e2e            # headless Chromium against target/debug/slopc
+cd web && bun run e2e            # headless Chromium against target/debug/picle
 ```
 
 Specs with numbered test cases live in `spec/`; the plan and feedback in `TODO.md`; agent rules in `AGENTS.md`.

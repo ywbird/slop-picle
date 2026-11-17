@@ -94,7 +94,7 @@ project seed); `t = (f − lo)/(hi − lo)`, `t = (1 − cos πt)/2`; output `le
 
 ## Time remapping (surface nodes)
 
-These evaluate their `surface` input at another frame `s` of the same graph (upstream caches frames instead; slopc
+These evaluate their `surface` input at another frame `s` of the same graph (upstream caches frames instead; picle
 recomputes them, which gives the same pictures). When `s` is "empty", the output is a transparent surface of the
 input's size at the current frame. All read the frame. `T = settings.frames`, `f` the frame.
 
@@ -104,7 +104,7 @@ input's size at the current frame. All read the frame. `T = settings.frames`, `f
 | `anim_speed` (`Node_Anim_Speed`) | `surface_in` required; `speed` number 1; `overflow` enum `loop`, `pingpong`, `empty` (`surface_out`) | `x = f·speed`; `loop`: `x mod T`; `pingpong`: `x mod (2T + 1)`, then `2T − x` if `x > T`; `empty`: empty if `x < 0` or `x ≥ T`. `s = floor(x)`, clamped to `0 … T − 1` |
 | `rate_remap` (`Node_Rate_Remap`) | `surface` required; `framerate` number 10, ≥ 1; `offset` number 0; `loop` bool true (`surface`) | `x = f − offset`, `loop` → `x mod T` (non-negative); `step = fps / framerate`; `s = floor(floor(x / step)·step)` |
 | `delay` (`Node_Delay`) | `surface` required; `frames` int 1; `overflow` enum `hold`, `loop`, `clear` (`surface`) | `x = f − frames`; `hold`: clamp to `0 … T − 1`; `loop`: `(x mod T)` non-negative; `clear`: empty outside `0 … T − 1` |
-| `stagger` (`Node_Stagger`) | `surface` required; `stagger_curve` curve (linear 0→1); `delay_step` number 1; `delay_frame` number 1; `overflow` enum `hide`, `clamp`, `loop` (`surface`) | one surface (slopc has no arrays yet, so upstream's per-element delay reduces to element 0): `n = floor(1 / delay_step)`; `x = round(f − curve(0)·delay_frame·n)` (`n = 0`: `x = f`; deviation, upstream divides 0 by 0); `hide`: empty outside `0 … T − 1`; `clamp`; `loop`: `x mod T` non-negative |
+| `stagger` (`Node_Stagger`) | `surface` required; `stagger_curve` curve (linear 0→1); `delay_step` number 1; `delay_frame` number 1; `overflow` enum `hide`, `clamp`, `loop` (`surface`) | one surface (picle has no arrays yet, so upstream's per-element delay reduces to element 0): `n = floor(1 / delay_step)`; `x = round(f − curve(0)·delay_frame·n)` (`n = 0`: `x = f`; deviation, upstream divides 0 by 0); `hide`: empty outside `0 … T − 1`; `clamp`; `loop`: `x mod T` non-negative |
 | `anim_loop` (`Node_Anim_Loop`) | `surface` required; `loop_type` enum `loop`, `pingpong`; `loop_start` int 1; `loop_range` int 4; `infinite` bool true; `loop_amount` int 1; `pre_loop`, `post_loop` enum `passthrough`, `empty` (defaults `passthrough`, `empty`) (`surface`) | `start = loop_start − 1`, `range = loop_range = 0 ? T − loop_start : loop_range`; `f < start`: pre-loop (`f` or empty); `n = floor((f − start)/range)`; `n > loop_amount` and not `infinite`: post-loop (`f` or empty); else `p = (f − start) mod range`, `s = start + p` for `loop`, and for `pingpong` `start + p` on even `n`, `start + range − 1 − p` on odd `n` |
 
 ### Delayed values
@@ -113,7 +113,7 @@ input's size at the current frame. All read the frame. `T = settings.frames`, `f
 `frames` int 1; `overflow` enum `hold`, `loop`, `value`; `default` any (output `value`, any). `x = f − frames`;
 `hold`: clamp to `0 … T − 1`; `loop`: `(x + T) rem T` with a truncating remainder, as upstream, and `default` when that
 is negative; `value`: `default` outside `0 … T − 1`. The output is `value` evaluated at frame `x`. Deviation: upstream
-returns values it recorded while playing (so frames never played give `default`); slopc evaluates frame `x` directly.
+returns values it recorded while playing (so frames never played give `default`); picle evaluates frame `x` directly.
 
 Left out of this area: audio, optical flow, keyframe drivers, `Node_Timeline_Preview`.
 
@@ -159,7 +159,7 @@ The tool instructions mention keyframes (`set_key`, the `anim` form) and that `r
 | AN-10 | int input keys 0 → 3 at frame 1 of 0..2; vec2 `[0, 0] → [10, 20]` at half; colour `#000000 → #ff0000` at half; enum `normal → add` at half | 2 (1.5 rounds up); `[5, 10]`; `(128, 0, 0, 255)`; `normal` |
 | AN-11 | a solid with an animated colour feeding a transform, and a separate static solid: evaluate frames 0 then 1 | frame 1 re-runs the animated solid and the transform, not the static solid |
 | AN-12 | `set_key` on an unset input; again at the same time with another value; at another time; `remove_key` twice; `set_key` on a ref input | one key; replaced; two keys; one key, then a plain literal; `bad_op` |
-| AN-13 | `slopc render --frame N` of a project whose solid colour is animated with cut keys per frame | each frame's pixel is that key's colour |
+| AN-13 | `picle render --frame N` of a project whose solid colour is animated with cut keys per frame | each frame's pixel is that key's colour |
 | AN-N1 | `wiggler` frames 24, `range [2, 5]`: same seed twice; frame 0 with `clip 3`; all 24 frames | identical; 3.5; all within 2–5 |
 | AN-N2 | `fn_ease` defaults, frames 20, at frames 0, 1, 10, 19; `fn_smoothstep` value 0.25 for each type; `fn_math` multiply 3, 4 | 0, 0.5, 1, 0.5; 0.15625, 0.1, 0.0357143, 0.1464466; 12 |
 | AN-N3 | `revert` frames 8, source = cut-keyed colour per frame: frame 0, frame 5 | source frame 7, 2 |

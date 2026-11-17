@@ -1,6 +1,6 @@
 # Edit operations
 
-The one edit vocabulary. `slopc edit`, the MCP tool `edit_project` and the server's HTTP API all apply the same ops.
+The one edit vocabulary. `picle edit`, the MCP tool `edit_project` and the server's HTTP API all apply the same ops.
 
 ## Ops
 
@@ -77,10 +77,10 @@ made in between survive an undo; if those edits conflict (the node is gone), the
 | OP-20 | batch creating a cycle | rejected, `cycle` |
 | OP-21 | ops on an unknown node id | rejected, `unknown_node` |
 | OP-22 | batch `[add blend b]` (missing background) | ok; warning `missing_input` |
-| OP-23 | `slopc edit a.slopc.json ops.json` with a valid batch | exit 0; file updated |
-| OP-24 | `slopc edit` with a rejected batch, `--json` | exit 1; `{ok: false, errors}`; file unchanged |
-| OP-25 | `slopc edit a.slopc.json -` with ops on stdin | applied |
-| OP-26 | `slopc edit` input that is a single op object, not an array | applied as a batch of one |
+| OP-23 | `picle edit a.picle.json ops.json` with a valid batch | exit 0; file updated |
+| OP-24 | `picle edit` with a rejected batch, `--json` | exit 1; `{ok: false, errors}`; file unchanged |
+| OP-25 | `picle edit a.picle.json -` with ops on stdin | applied |
+| OP-26 | `picle edit` input that is a single op object, not an array | applied as a batch of one |
 | OP-28 | batches: add with refs; remove a referenced node; rename; set and unset inputs; label; move; settings | applying `undo` to the result gives the original (ignoring node order); applying `redo` to the original gives the result |
 | OP-29 | a batch, then an unrelated edit to another node, then its `undo` | the batch is reverted and the unrelated edit is kept |
-| OP-27 | 8 concurrent `slopc edit` processes each adding a node | all 8 nodes present (lock serialises) |
+| OP-27 | 8 concurrent `picle edit` processes each adding a node | all 8 nodes present (lock serialises) |

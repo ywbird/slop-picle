@@ -52,7 +52,7 @@ Upstream's `srgb` blend (type 4) is left out: its editor does not offer it.
 
 ### Curve evaluation
 
-Upstream `eval_curve_x` (`scripts/curve_bezier_function`; upstream stores a curve as a flat array, slopc as the object
+Upstream `eval_curve_x` (`scripts/curve_bezier_function`; upstream stores a curve as a flat array, picle as the object
 above). Points are sorted by `x`. For input `x`: `x' = clamp(x / scale − shift, 0, 1)`; `lo, hi = range` (both 0 means
 `0, 1`); the result is `lerp(lo, hi, y)` with `y`:
 
@@ -72,7 +72,7 @@ Ranges (`min`, `max`) are inclusive and apply to literals only; refs are checked
 The catalog is the single description of every node type. Validation, the CLI, MCP and the web UI read it;
 nothing about a node type is defined anywhere else.
 
-Shape (also the output of `slopc nodes --json`):
+Shape (also the output of `picle nodes --json`):
 
 ```json
 {
@@ -108,7 +108,7 @@ Shape (also the output of `slopc nodes --json`):
 | TY-05 | `vec2` given `[1]`, `[1,2,3]`, `["1",2]` | `type_mismatch` each |
 | TY-06 | `bool` input given `1` | `type_mismatch` |
 | TY-07 | every catalog entry | satisfies the catalog rules above (defaults fit type and range, names unique and well-formed, ≥ 1 output, required ⇔ no default) |
-| TY-08 | `slopc nodes --json` | parses; one entry per catalog type; entries equal the shape above |
+| TY-08 | `picle nodes --json` | parses; one entry per catalog type; entries equal the shape above |
 | TY-09 | a ref from an `int` output to a `number` input | valid (no node outputs `int` yet; tested by `fits` unit test) |
 | TY-10 | a ref from a `number` output (node `number`) to an `int` input (`noise.seed`) | `type_mismatch` |
 | TY-11 | `dimension` given `[2.5, 1]`, `[1]` | `type_mismatch` each |
