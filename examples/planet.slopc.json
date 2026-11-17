@@ -3,7 +3,7 @@
   "settings": {
     "width": 64,
     "height": 64,
-    "frames": 1,
+    "frames": 24,
     "fps": 12
   },
   "nodes": {
@@ -13,18 +13,18 @@
         "color": "#0b0d17"
       },
       "pos": [
-        0,
-        0
+        -63,
+        -20
       ]
     },
     "stars_noise": {
       "type": "noise",
       "inputs": {
-        "seed": 3
+        "seed": 11
       },
       "pos": [
-        0,
-        220
+        -63,
+        200
       ]
     },
     "stars": {
@@ -35,11 +35,11 @@
           "ref": "stars_noise"
         },
         "brightness": true,
-        "brightness_threshold": 0.97
+        "brightness_threshold": 0.93
       },
       "pos": [
-        260,
-        220
+        167,
+        76
       ]
     },
     "sky": {
@@ -55,13 +55,13 @@
         "opacity": 0.8
       },
       "pos": [
-        520,
-        0
+        457,
+        -20
       ]
     },
     "light": {
       "type": "gradient",
-      "label": "sun from the top-left",
+      "label": "mars, lit from the top-left",
       "inputs": {
         "dimension": [
           40,
@@ -78,26 +78,26 @@
           "keys": [
             {
               "time": 0,
-              "color": "#a7f070"
+              "color": "#f4b41b"
             },
             {
               "time": 0.45,
-              "color": "#38b764"
+              "color": "#e06f3d"
             },
             {
               "time": 0.8,
-              "color": "#257179"
+              "color": "#a33b3b"
             },
             {
               "time": 1,
-              "color": "#29366f"
+              "color": "#4a1f3a"
             }
           ]
         }
       },
       "pos": [
-        0,
-        460
+        -52,
+        475
       ]
     },
     "shade": {
@@ -108,15 +108,15 @@
         },
         "pattern": "bayer_4x4",
         "palette": [
-          "#a7f070",
-          "#38b764",
-          "#257179",
-          "#29366f"
+          "#f4b41b",
+          "#e06f3d",
+          "#a33b3b",
+          "#4a1f3a"
         ]
       },
       "pos": [
-        260,
-        460
+        197,
+        440
       ]
     },
     "disc": {
@@ -129,8 +129,8 @@
         "shape": "ellipse"
       },
       "pos": [
-        260,
-        720
+        226,
+        769
       ]
     },
     "planet": {
@@ -146,8 +146,8 @@
         "blend_mode": "multiply"
       },
       "pos": [
-        520,
-        560
+        495,
+        557
       ]
     },
     "rim": {
@@ -169,27 +169,343 @@
       "type": "blend",
       "inputs": {
         "background": {
-          "ref": "sky"
+          "ref": "sky_ring"
         },
         "foreground": {
           "ref": "rim"
         }
       },
       "pos": [
-        1040,
-        0
+        960,
+        198
       ]
     },
     "out": {
       "type": "output",
       "inputs": {
         "surface_in": {
-          "ref": "scene"
+          "ref": "moon_scene"
         }
+      },
+      "pos": [
+        1555,
+        133
+      ]
+    },
+    "moon": {
+      "type": "shape",
+      "label": "small moon",
+      "inputs": {
+        "dimension": [
+          9,
+          9
+        ],
+        "shape": "ellipse",
+        "shape_color": "#c7cfd6"
+      },
+      "pos": [
+        1040,
+        480
+      ]
+    },
+    "moon_scene": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "front_scene"
+        },
+        "foreground": {
+          "ref": "moon"
+        },
+        "position": [
+          0.18,
+          0.18
+        ]
+      },
+      "pos": [
+        1300,
+        260
+      ]
+    },
+    "ring_outer": {
+      "type": "shape",
+      "label": "ring seen from above",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "shape": "ellipse",
+        "half_size": [
+          0.45,
+          0.45
+        ],
+        "shape_color": "#ffffff"
+      },
+      "pos": [
+        0,
+        900
+      ]
+    },
+    "ring_hole": {
+      "type": "shape",
+      "label": "ring gap: clear inside, white outside",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "shape": "ellipse",
+        "half_size": [
+          0.34,
+          0.34
+        ],
+        "shape_color": "#00000000",
+        "background": "solid",
+        "bg_color": "#ffffff"
+      },
+      "pos": [
+        0,
+        1160
+      ]
+    },
+    "ring": {
+      "type": "blend",
+      "label": "multiply cuts the gap out",
+      "inputs": {
+        "background": {
+          "ref": "ring_outer"
+        },
+        "foreground": {
+          "ref": "ring_hole"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        260,
+        1000
+      ]
+    },
+    "ring_rim": {
+      "type": "outline",
+      "inputs": {
+        "surface_in": {
+          "ref": "ring_tilt"
+        },
+        "width": 1,
+        "profile": "square",
+        "color": "#1a1c2c"
+      },
+      "pos": [
+        520,
+        1000
+      ]
+    },
+    "sky_ring": {
+      "type": "blend",
+      "label": "back half of the ring, behind the planet",
+      "inputs": {
+        "background": {
+          "ref": "sky"
+        },
+        "foreground": {
+          "ref": "ring_rim"
+        }
+      },
+      "pos": [
+        780,
+        220
+      ]
+    },
+    "ring_front": {
+      "type": "crop",
+      "label": "lower half of the ring",
+      "inputs": {
+        "surface_in": {
+          "ref": "ring_rim"
+        },
+        "crop": [
+          0,
+          32,
+          0,
+          0
+        ]
+      },
+      "pos": [
+        780,
+        1000
+      ]
+    },
+    "front_scene": {
+      "type": "blend",
+      "label": "front half over the planet",
+      "inputs": {
+        "background": {
+          "ref": "scene"
+        },
+        "foreground": {
+          "ref": "ring_front"
+        },
+        "position": [
+          0.5,
+          0.75
+        ]
       },
       "pos": [
         1300,
         0
+      ]
+    },
+    "ring_sectors": {
+      "type": "gradient",
+      "label": "8 sectors, one bright marker; angle keyed 0 to 360",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "type": "radial",
+        "gradient": {
+          "type": "constant",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#f4e4c1"
+            },
+            {
+              "time": 0.125,
+              "color": "#a8743c"
+            },
+            {
+              "time": 0.25,
+              "color": "#e0b070"
+            },
+            {
+              "time": 0.375,
+              "color": "#a8743c"
+            },
+            {
+              "time": 0.5,
+              "color": "#e0b070"
+            },
+            {
+              "time": 0.625,
+              "color": "#a8743c"
+            },
+            {
+              "time": 0.75,
+              "color": "#e0b070"
+            },
+            {
+              "time": 0.875,
+              "color": "#a8743c"
+            }
+          ]
+        },
+        "angle": {
+          "anim": [
+            {
+              "time": 0,
+              "value": 0
+            },
+            {
+              "time": 24,
+              "value": 360
+            }
+          ]
+        }
+      },
+      "pos": [
+        0,
+        1420
+      ]
+    },
+    "ring_bands": {
+      "type": "gradient",
+      "label": "dark gap and darker outer edge",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "type": "circular",
+        "radius": 0.70710678,
+        "gradient": {
+          "type": "constant",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.385,
+              "color": "#4a3a3a"
+            },
+            {
+              "time": 0.405,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.425,
+              "color": "#d0d0d0"
+            }
+          ]
+        }
+      },
+      "pos": [
+        0,
+        1680
+      ]
+    },
+    "ring_pattern": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "ring_sectors"
+        },
+        "foreground": {
+          "ref": "ring_bands"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        260,
+        1540
+      ]
+    },
+    "ring_tex": {
+      "type": "blend",
+      "label": "pattern cut to the ring",
+      "inputs": {
+        "background": {
+          "ref": "ring"
+        },
+        "foreground": {
+          "ref": "ring_pattern"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        520,
+        1260
+      ]
+    },
+    "ring_tilt": {
+      "type": "transform",
+      "label": "squash to a tilted ellipse",
+      "inputs": {
+        "surface_in": {
+          "ref": "ring_tex"
+        },
+        "scale": [
+          1,
+          0.21
+        ],
+        "rotation": 12
+      },
+      "pos": [
+        780,
+        1260
       ]
     }
   }
