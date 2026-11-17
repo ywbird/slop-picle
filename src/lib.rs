@@ -7,6 +7,7 @@ pub mod nodes;
 pub mod ops;
 pub mod project;
 pub mod sandbox;
+pub mod server;
 pub mod shader;
 pub mod surface;
 pub mod types;

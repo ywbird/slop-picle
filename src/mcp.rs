@@ -117,6 +117,26 @@ pub fn stats(s: &Surface) -> (Option<[u32; 4]>, usize) {
     (bbox, colors.len())
 }
 
+/// Create an empty project inside the root (shared by MCP and the server).
+pub fn create_project(root: &Path, rel: &str, width: u32, height: u32) -> Result<(), Vec<Error>> {
+    let path = sandbox::project(root, rel).map_err(|e| vec![e])?;
+    if path.exists() {
+        return Err(vec![Error::new("exists", format!("'{rel}' already exists"))]);
+    }
+    let mut p = Project::default();
+    p.settings.width = width as i64;
+    p.settings.height = height as i64;
+    let errors = project::validate(&p);
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    let io = |e: &dyn std::fmt::Display| vec![Error::new("io_error", format!("{rel}: {e}"))];
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| io(&e))?;
+    }
+    project::save(&path, &p).map_err(|e| io(&e))
+}
+
 impl Slopc {
     pub fn new(root: &Path) -> std::io::Result<Self> {
         let root = root.canonicalize()?;
@@ -139,28 +159,9 @@ impl Slopc {
 
     #[tool(description = "Create an empty project file (no nodes).")]
     fn create_project(&self, Parameters(a): Parameters<CreateArgs>) -> CallToolResult {
-        let path = match sandbox::project(&self.root, &a.path) {
-            Ok(p) => p,
-            Err(e) => return fail(vec![e]),
-        };
-        if path.exists() {
-            return fail(vec![Error::new("exists", format!("'{}' already exists", a.path))]);
-        }
-        let mut p = Project::default();
-        p.settings.width = a.width.unwrap_or(32) as i64;
-        p.settings.height = a.height.unwrap_or(32) as i64;
-        let errors = project::validate(&p);
-        if !errors.is_empty() {
-            return fail(errors);
-        }
-        if let Some(dir) = path.parent()
-            && let Err(e) = std::fs::create_dir_all(dir)
-        {
-            return io(&a.path, e);
-        }
-        match project::save(&path, &p) {
+        match create_project(&self.root, &a.path, a.width.unwrap_or(32), a.height.unwrap_or(32)) {
             Ok(()) => ok(json!({ "ok": true, "path": a.path })),
-            Err(e) => io(&a.path, e),
+            Err(e) => fail(e),
         }
     }
 

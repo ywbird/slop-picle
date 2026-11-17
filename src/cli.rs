@@ -78,6 +78,18 @@ enum Cmd {
         #[arg(long, default_value = ".")]
         root: PathBuf,
     },
+    /// Serve the web UI, JSON API and events.
+    Serve {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        #[arg(long, default_value_t = 7420)]
+        port: u16,
+        /// Access token (default: $SLOPC_TOKEN, else random).
+        #[arg(long)]
+        token: Option<String>,
+    },
     /// Print the project file's JSON Schema.
     Schema,
 }
@@ -95,6 +107,13 @@ pub fn main() -> i32 {
             Ok(()) => 0,
             Err(e) => {
                 eprintln!("slopc mcp: {e}");
+                EXIT_IO
+            }
+        },
+        Cmd::Serve { root, host, port, token } => match crate::server::run(crate::server::Options { root, host, port, token }) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("slopc serve: {e}");
                 EXIT_IO
             }
         },
