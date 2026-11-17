@@ -10,7 +10,7 @@ use slopc::types::Value;
 fn proj(frames: i64, nodes: Json) -> Project {
     let text = json!({ "slopc": 1, "settings": { "width": 2, "height": 2, "frames": frames, "fps": 12 }, "nodes": nodes }).to_string();
     let l = project::load_str(&text);
-    assert!(l.errors.is_empty(), "{:?}", l.errors);
+    assert!(l.blocking().is_empty(), "{:?}", l.errors);
     l.project.unwrap()
 }
 
