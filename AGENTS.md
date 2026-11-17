@@ -1,6 +1,9 @@
 # Agent rules
 
-1. Ask the user whenever something is ambiguous. Do not guess.
+1. When something is ambiguous, follow the original project first:
+   [Pixel Composer](https://github.com/Ttanasart-pt/Pixel-Composer) (node set, inputs, defaults, behavior, shader math).
+   Cite the upstream file in the spec. Ask the user only when upstream gives no answer,
+   or when it conflicts with a decision recorded in `TODO.md`. Do not guess.
 2. `TODO.md` has a `Feedback` section. Every piece of user feedback goes there as a checkbox item.
    If working on an item raises an ambiguity, list the points to confirm as an indented list under that item.
 3. Commit to git after every change.

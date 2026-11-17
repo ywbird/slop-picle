@@ -25,7 +25,8 @@ Confirmed with the user on 2026-11-17.
 
 Chosen without asking. Say so if any is wrong.
 
-- Upstream is a source of ideas only: no `.pxc` import, no matching node names. Shader math ported from upstream keeps its MIT notice.
+- No `.pxc` import. Shader math ported from upstream keeps its MIT notice.
+- Ambiguities follow upstream behavior first (see `AGENTS.md` rule 1).
 - One Rust crate, one binary with subcommands. The web UI is a static Vite build embedded in the binary.
 - Surfaces are RGBA8 with straight alpha, sampled nearest-neighbour, no colour management.
 - The server speaks plain HTTP. TLS is left to a reverse proxy or a tunnel.
@@ -169,3 +170,5 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] `transform` keeps the input size; content moved outside is clipped
   - [x] `slopc new` creates a project with no nodes
   - [x] Limits: 4096 px per side, 2048² px per surface, 1000 nodes
+- [x] From now on, resolve ambiguities by following the original project (Pixel Composer) first
+  - To confirm: re-check the M1 spec and the unasked "Assumptions" against upstream now (node names, inputs, defaults, noise and blend math), or keep them and apply the rule only to new work
