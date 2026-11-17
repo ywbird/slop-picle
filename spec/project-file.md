@@ -60,6 +60,7 @@ An input holds either a **literal** of the input's type (see [types.md](types.md
 - `"node"` refers to the node's first output, `"node.output"` to a named output.
 - A ref object has exactly the key `ref`.
 - Inputs of type `surface` accept only refs.
+- Other inputs may also hold an animation `{"anim": [...], "on_end": ...}` ([animation.md](animation.md)).
 
 ## Load
 

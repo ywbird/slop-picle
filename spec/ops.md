@@ -16,6 +16,7 @@ An op is a JSON object with an `op` field. Unknown fields are errors (`bad_op`).
 | `unset_input` | `id`, `input` | Removes the input (it takes its default). Unsetting an unset input is not an error. |
 | `set_label` | `id`, `label` | Sets the label; `null` removes it. |
 | `set_settings` | any of `width`, `height`, `frames`, `fps` | Sets those settings. |
+| `set_key`, `remove_key` | see [animation.md](animation.md#ops) | Edit one keyframe of an input. |
 
 ## Batches
 
