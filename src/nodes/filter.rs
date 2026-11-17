@@ -17,7 +17,7 @@ fn same_size(ctx: &mut Ctx, v: &[Value], body: &str) -> R {
 }
 
 /// Gaussian kernel parameters for a blur size (spec: radius max(ceil(size) − 1, 0), σ = max(size, 1)/3).
-fn kernel(size: f64) -> (i32, f64) {
+pub(super) fn kernel(size: f64) -> (i32, f64) {
     (((size.ceil() as i32) - 1).max(0), size.max(1.0) / 3.0)
 }
 
@@ -117,7 +117,7 @@ pub const SHADOW_IN: &[I] = &[
 ];
 
 /// One separable Gaussian pass over an alpha map (outside counts as 0).
-fn blur_alpha(m: &[f64], w: usize, h: usize, r: i32, sigma: f64, horizontal: bool) -> Vec<f64> {
+pub(super) fn blur_alpha(m: &[f64], w: usize, h: usize, r: i32, sigma: f64, horizontal: bool) -> Vec<f64> {
     let mut out = vec![0.0; m.len()];
     for y in 0..h {
         for x in 0..w {

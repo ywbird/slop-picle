@@ -3,7 +3,7 @@
 use crate::catalog::{Default as D, InputDef as I, NodeDef, OutputDef as O, Remap};
 use crate::eval::{Ctx, NodeError};
 use crate::shader;
-use crate::surface::Surface;
+use crate::surface::{self, Surface};
 use crate::types::{Type as T, Value};
 use std::sync::Arc;
 
@@ -135,12 +135,20 @@ pub const BLEND_MODES: &[&str] = &[
 ];
 
 const BLEND_IN: &[I] = &[
-    I::required("background", T::Surface, "Bottom image; sets the output size."),
-    I::new("foreground", T::Surface, D::None, "Top image, centred on position. Absent: output is the background."),
+    I::required("background", T::Surface, "Bottom image, stretched to the output size."),
+    I::new("foreground", T::Surface, D::None, "Top image, placed by fill_mode. Absent: output is the background."),
+    I::new("mask", T::Surface, D::None, "Where to blend: mean of rgb times alpha, stretched to the output size."),
+    I::new("swap", T::Bool, D::Bool(false), "Swap background and foreground."),
+    I::new("invert_mask", T::Bool, D::Bool(false), "Invert the mask."),
+    I::new("mask_feather", T::Number, D::Number(1.0), "Blur the mask by this size; 1 is none.").range(1.0, 16.0),
+    I::new("output_dimension", T::Enum, D::Enum("background"), "Output size from this input, the largest, or constant_dimension.")
+        .options(&["background", "foreground", "mask", "maximum", "constant"]),
+    I::new("constant_dimension", T::Dimension, D::ProjectSize, "Output size when output_dimension is constant."),
     I::new("blend_mode", T::Enum, D::Enum("normal"), "Blend mode (upstream formulas).").options(BLEND_MODES),
     I::new("opacity", T::Number, D::Number(1.0), "Foreground opacity.").range(0.0, 1.0),
     I::new("preserve_alpha", T::Bool, D::Bool(false), "Keep the background's alpha."),
-    I::new("position", T::Vec2, D::Vec2([0.5, 0.5]), "Foreground centre, as a fraction of the background size."),
+    I::new("fill_mode", T::Enum, D::Enum("none"), "Foreground placed at position, stretched, or tiled.").options(&["none", "stretch", "tile"]),
+    I::new("position", T::Vec2, D::Vec2([0.5, 0.5]), "Foreground centre, as a fraction of the output size."),
 ];
 
 /// Upstream `shaders/sh_blend_*` as one function, `mode` indexing `BLEND_MODES` (spec/nodes.md#blend--compose).
@@ -174,15 +182,16 @@ fn blend_hsl2rgb(c: vec3<f32>) -> vec3<f32> {
     let m1 = 2.0 * c.z - m2;
     return vec3<f32>(blend_hue2rgb(m1, m2, c.x + 1.0 / 3.0), blend_hue2rgb(m1, m2, c.x), blend_hue2rgb(m1, m2, c.x - 1.0 / 3.0));
 }
-fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, mode: u32, pa: bool) -> vec4<f32> {
+fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, m: f32, mode: u32, pa: bool) -> vec4<f32> {
     var B = B0;
     var F = F0;
+    let om = o * m;
     var res = B;
     var al = 0.0;
     var divide = true;
     switch mode {
         case 0u: {
-            F.a = F.a * o;
+            F.a = F.a * om;
             al = F.a + B.a * (1.0 - F.a);
             if (al == 0.0) { return vec4<f32>(0.0); }
             res = (F * F.a + B * B.a * (1.0 - F.a)) / al;
@@ -190,47 +199,47 @@ fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, mode: u32, pa: bool) -> vec4<f
             divide = false;
         }
         case 1u: {
-            res = mix(B, F, o);
+            res = mix(B, F, om);
             divide = false;
         }
         case 2u: {
-            res = mix(B, B * F, o);
+            res = mix(B, B * F, om);
             al = F.a + B.a * (1.0 - F.a);
         }
         case 5u, 9u: {
-            F = F * o;
+            F = F * om;
             res = select(max(B, F), min(B, F), mode == 5u);
             divide = false;
         }
         case 6u, 18u: {
             B = vec4<f32>(B.rgb * B.a, B.a);
-            F.a = F.a * o;
+            F.a = F.a * om;
             F = vec4<f32>(F.rgb * F.a, F.a);
             al = F.a + B.a * (1.0 - F.a);
             if (mode == 6u) { res = B + F; } else { res = mix(B, B - F, select(o, F.a, pa)); }
         }
         case 7u: {
             F = vec4<f32>(F.rgb * F.a, F.a);
-            res = mix(B, vec4<f32>(1.0) - (vec4<f32>(1.0) - B) * (vec4<f32>(1.0) - F), o);
+            res = mix(B, vec4<f32>(1.0) - (vec4<f32>(1.0) - B) * (vec4<f32>(1.0) - F), om);
             al = F.a + B.a * (1.0 - F.a);
         }
         case 10u: {
-            F.a = F.a * o;
+            F.a = F.a * om;
             var X = 2.0 * F * B;
             if (lum(F.rgb) > 0.5) { X = vec4<f32>(1.0) - (vec4<f32>(1.0) - 2.0 * (F - 0.5)) * (vec4<f32>(1.0) - B); }
             res = mix(B, X, select(o, F.a, pa));
             al = F.a + B.a * (1.0 - F.a);
         }
         case 16u: {
-            return clamp(mix(B, vec4<f32>(abs(B.rgb - F.rgb), 1.0), o), vec4<f32>(0.0), vec4<f32>(1.0));
+            return clamp(mix(B, vec4<f32>(abs(B.rgb - F.rgb), 1.0), om), vec4<f32>(0.0), vec4<f32>(1.0));
         }
         case 23u, 24u: {
-            res = vec4<f32>(select(0.0, o, all(B == F) == (mode == 23u)));
+            res = vec4<f32>(select(0.0, om, all(B == F) == (mode == 23u)));
             divide = false;
         }
         case 20u, 21u, 22u: {
             al = F.a + B.a * (1.0 - F.a);
-            let t = F.a * o;
+            let t = F.a * om;
             var rgb: vec3<f32>;
             if (mode == 20u) {
                 let h0 = rgb2hsv(B.rgb);
@@ -248,7 +257,7 @@ fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, mode: u32, pa: bool) -> vec4<f
             res = vec4<f32>(rgb, B.a);
         }
         default: {
-            F.a = F.a * o;
+            F.a = F.a * om;
             let one = vec4<f32>(1.0);
             let L = lum(F.rgb) > 0.5;
             var X: vec4<f32>;
@@ -279,27 +288,78 @@ fn blend_px(B0: vec4<f32>, F0: vec4<f32>, o: f32, mode: u32, pa: bool) -> vec4<f
 ";
 
 const BLEND_SHADE: &str = "
+fn stretch(px: vec2<i32>, src_size: vec2<u32>) -> vec2<i32> {
+    return vec2<i32>(floor((vec2<f32>(px) + 0.5) * vec2<f32>(src_size) / vec2<f32>(p.out_info.xy)));
+}
 fn shade(px: vec2<i32>) -> vec4<f32> {
-    let B = load_background(px);
+    let B = load_background(stretch(px, p.background_info.xy));
     if (p.foreground_info.z == 0u) { return B; }
-    let F = load_foreground(px - vec2<i32>(p.fg_off.xy));
-    return blend_px(B, F, p.opacity.x, p.blend_mode.x, p.preserve_alpha.x == 1u);
+    let fs = vec2<i32>(p.foreground_info.xy);
+    var F: vec4<f32>;
+    switch p.fill_mode.x {
+        case 1u: { F = load_foreground(stretch(px, p.foreground_info.xy)); }
+        case 2u: { F = load_foreground(((px % fs) + fs) % fs); }
+        default: { F = load_foreground(px - vec2<i32>(p.fg_off.xy)); }
+    }
+    var m = 1.0;
+    if (p.mask_info.z == 1u) { m = load_mask(stretch(px, p.mask_info.xy)).r; }
+    return blend_px(B, F, p.opacity.x, m, p.blend_mode.x, p.preserve_alpha.x == 1u);
 }
 ";
 
+/// Mask strength (mean of rgb, inverted if asked, times alpha), feathered, as an opaque grey image.
+fn mask_strength(m: &Surface, invert: bool, feather: f64) -> Surface {
+    let (w, h) = (m.width as usize, m.height as usize);
+    let mut s: Vec<f64> = m
+        .data
+        .chunks_exact(4)
+        .map(|p| {
+            let mean = (p[0] as f64 + p[1] as f64 + p[2] as f64) / 765.0;
+            (if invert { 1.0 - mean } else { mean }) * p[3] as f64 / 255.0
+        })
+        .collect();
+    let (r, sigma) = filter::kernel(feather);
+    if r > 0 {
+        s = filter::blur_alpha(&filter::blur_alpha(&s, w, h, r, sigma, true), w, h, r, sigma, false);
+    }
+    let mut out = Surface::new(m.width, m.height);
+    for (px, v) in out.data.chunks_exact_mut(4).zip(s) {
+        let g = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        px.copy_from_slice(&[g, g, g, 255]);
+    }
+    out
+}
+
 fn blend(ctx: &mut Ctx, v: &[Value]) -> R {
-    let bg = surf(&v[0]).clone();
+    let mut v = v.to_vec();
+    if v[3] == Value::Bool(true) {
+        v.swap(0, 1);
+    }
+    let size = |i: usize| v[i].surface().map_or([1, 1], |s| [s.width, s.height]);
+    let out_size = match v[6] {
+        Value::Enum(0) => size(0),
+        Value::Enum(1) => size(1),
+        Value::Enum(2) => size(2),
+        Value::Enum(3) => [0, 1, 2].map(size).into_iter().fold([1, 1], |a, s| [a[0].max(s[0]), a[1].max(s[1])]),
+        _ => dim(&v[7]),
+    };
+    if !surface::size_ok(out_size[0], out_size[1]) {
+        return Err(format!("output would be {}x{}, outside the size limits", out_size[0], out_size[1]).into());
+    }
+    if v[0].surface().is_none() {
+        return out(Surface::new(out_size[0], out_size[1]));
+    }
+    if let Some(m) = v[2].surface() {
+        v[2] = Value::Surface(Arc::new(mask_strength(m, v[4] == Value::Bool(true), v[5].num())));
+    }
     let off = match v[1].surface() {
         Some(fg) => {
-            let pos = v[5].vec2();
-            [
-                (pos[0] * bg.width as f64 - fg.width as f64 / 2.0).floor() as f32,
-                (pos[1] * bg.height as f64 - fg.height as f64 / 2.0).floor() as f32,
-            ]
+            let pos = v[12].vec2();
+            [(pos[0] * out_size[0] as f64 - fg.width as f64 / 2.0).floor() as f32, (pos[1] * out_size[1] as f64 - fg.height as f64 / 2.0).floor() as f32]
         }
         None => [0.0, 0.0],
     };
-    out(shader::run(ctx, v, &format!("{BLEND_FN}{BLEND_SHADE}"), &[("fg_off", [off[0], off[1], 0.0, 0.0])], [bg.width, bg.height])?)
+    out(shader::run(ctx, &v, &format!("{BLEND_FN}{BLEND_SHADE}"), &[("fg_off", [off[0], off[1], 0.0, 0.0])], out_size)?)
 }
 
 // ---------- image ----------
