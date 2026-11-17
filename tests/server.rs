@@ -409,3 +409,21 @@ fn srv_20_reads_are_not_changes() {
     }
     assert!(rx.recv_timeout(Duration::from_secs(1)).is_err(), "reads produced a changed event");
 }
+
+#[test]
+fn srv_21_undo_redo_via_api() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
+    let file = || std::fs::read_to_string(d.path().join("a.slopc.json")).unwrap();
+    let original = file();
+    let (st, r) = s.post("/api/ops?path=a.slopc.json", &solid_output());
+    assert_eq!(st, 200);
+    let edited = file();
+    let (st, _) = s.post("/api/ops?path=a.slopc.json", &r["undo"]);
+    assert_eq!(st, 200);
+    assert_eq!(file(), original);
+    let (st, _) = s.post("/api/ops?path=a.slopc.json", &r["redo"]);
+    assert_eq!(st, 200);
+    assert_eq!(file(), edited);
+}

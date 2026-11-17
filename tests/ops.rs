@@ -273,3 +273,41 @@ fn op_27_concurrent_edits() {
         assert!(p.nodes.contains_key(&format!("c{i}")), "c{i} missing");
     }
 }
+
+/// Project JSON with nodes sorted by id (undo does not restore node order).
+fn norm(p: &Project) -> Json {
+    let mut v = p.to_json();
+    let nodes: std::collections::BTreeMap<String, Json> = v["nodes"].as_object().unwrap().clone().into_iter().collect();
+    v["nodes"] = json!(nodes);
+    v
+}
+
+#[test]
+fn op_28_undo_redo_round_trip() {
+    let start = ok(&base(), json!([{ "op": "set_input", "id": "bg", "input": "color", "value": "#112233" }, { "op": "move_node", "id": "bg", "pos": [5, 6] }])).project;
+    let batches = vec![
+        json!([{ "op": "add_node", "id": "n", "type": "noise", "inputs": { "seed": 3 }, "pos": [1, 2] },
+               { "op": "add_node", "id": "t", "type": "transform", "inputs": { "surface_in": { "ref": "n" } } }]),
+        json!([{ "op": "remove_node", "id": "bg" }]),
+        json!([{ "op": "rename_node", "id": "bg", "new_id": "sky" }]),
+        json!([{ "op": "set_input", "id": "bg", "input": "color", "value": "#ff0000" }, { "op": "unset_input", "id": "out", "input": "surface_in" }]),
+        json!([{ "op": "set_label", "id": "bg", "label": "hello" }, { "op": "move_node", "id": "out", "pos": [9, 9] }]),
+        json!([{ "op": "set_settings", "width": 64, "fps": 24 }]),
+    ];
+    for b in batches {
+        let a = ok(&start, b.clone());
+        let undone = ok(&a.project, Json::Array(a.undo.clone())).project;
+        assert_eq!(norm(&undone), norm(&start), "undo of {b}");
+        let redone = ok(&start, Json::Array(a.redo.clone())).project;
+        assert_eq!(norm(&redone), norm(&a.project), "redo of {b}");
+    }
+}
+
+#[test]
+fn op_29_undo_keeps_unrelated_edits() {
+    let a = ok(&base(), json!([{ "op": "set_input", "id": "bg", "input": "color", "value": "#ff0000" }]));
+    let other = ok(&a.project, json!([{ "op": "add_node", "id": "x", "type": "noise" }])).project;
+    let undone = ok(&other, Json::Array(a.undo.clone())).project;
+    assert!(undone.nodes.contains_key("x"));
+    assert!(!undone.nodes["bg"].inputs.contains_key("color"));
+}

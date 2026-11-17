@@ -250,3 +250,64 @@ test("WEB-14 context menus", async () => {
   await page.keyboard.press("Enter");
   await waitFile((p) => Object.keys(p.nodes).length === before + 1);
 }, 30000);
+
+async function waitFor(ok: (p: any) => boolean) {
+  for (let i = 0; i < 50 && !ok(read()); i++) await Bun.sleep(100);
+  expect(ok(read())).toBe(true);
+}
+
+async function boxSelect(ids: string[]) {
+  const boxes = await Promise.all(ids.map(async (id) => (await page.locator(`.svelte-flow__node[data-id="${id}"]`).boundingBox())!));
+  const x0 = Math.min(...boxes.map((b) => b.x)) - 12, y0 = Math.min(...boxes.map((b) => b.y)) - 12;
+  const x1 = Math.max(...boxes.map((b) => b.x + b.width)) + 12, y1 = Math.min(Math.max(...boxes.map((b) => b.y)) + 40, 880);
+  await page.mouse.move(x1, y1);
+  await page.mouse.down();
+  await page.mouse.move(x0, y0, { steps: 15 });
+  await page.mouse.up();
+}
+
+test("WEB-21 Delete key removes the selected node", async () => {
+  await page.locator('.svelte-flow__node[data-id="pic"] .head').click();
+  await page.keyboard.press("Delete");
+  await waitFor((p) => !p.nodes.pic);
+}, 30000);
+
+test("WEB-22 Delete removes a box selection in one request", async () => {
+  await page.keyboard.press("Escape");
+  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
+  const bodies: string[] = [];
+  const onReq = (r: { url(): string; postData(): string | null }) => r.url().includes("/api/ops") && bodies.push(r.postData() ?? "");
+  page.on("request", onReq);
+  await boxSelect(["bg", "n"]);
+  await page.keyboard.press("Delete");
+  await waitFor((p) => !p.nodes.bg && !p.nodes.n);
+  page.off("request", onReq);
+  expect(bodies.length).toBe(1);
+}, 30000);
+
+test("WEB-23 undo and redo by shortcut and button", async () => {
+  await page.keyboard.press("Control+z");
+  await waitFor((p) => !!p.nodes.bg && !!p.nodes.n);
+  await page.keyboard.press("Control+Shift+z");
+  await waitFor((p) => !p.nodes.bg && !p.nodes.n);
+  await page.locator('header button[aria-label="undo"]').click();
+  await waitFor((p) => !!p.nodes.bg && !!p.nodes.n);
+}, 30000);
+
+test("WEB-24 undo keeps an edit made elsewhere", async () => {
+  await page.waitForSelector('.svelte-flow__node[data-id="n"]');
+  await page.locator('.svelte-flow__node[data-id="n"] .head').click();
+  const seed = page.locator(".popup .row", { hasText: "seed" }).locator("input");
+  await seed.fill("9");
+  await seed.press("Enter");
+  await waitFor((p) => p.nodes.n.inputs?.seed === 9);
+  const edit = Bun.spawn([bin, "edit", file, "-"], { stdin: "pipe" });
+  edit.stdin.write(JSON.stringify([{ op: "add_node", id: "ext", type: "solid", pos: [0, -200] }]));
+  edit.stdin.end();
+  expect(await edit.exited).toBe(0);
+  await page.keyboard.press("Escape");
+  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
+  await page.keyboard.press("Control+z");
+  await waitFor((p) => p.nodes.n.inputs?.seed === 5);
+  expect(read().nodes.ext).toBeTruthy();
+}, 30000);
