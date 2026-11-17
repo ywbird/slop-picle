@@ -32,6 +32,11 @@ export const api = {
   create: (path: string, width: number, height: number) => call<unknown>("POST", "/api/projects", { path, width, height }),
   project: (path: string) => call<ProjectView>("GET", `/api/project?${q(path)}`),
   ops: (path: string, ops: Op[]) => call<OpResult>("POST", `/api/ops?${q(path)}`, ops),
+  upload: async (path: string, file: Blob) => {
+    const res = await fetch(`/api/upload?${q(path)}`, { method: "POST", body: file, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiFailure(res.status, data.errors ?? []);
+  },
   renderUrl: (path: string, node: string | null, frame: number, key = "") =>
     `/api/render?${q(path)}${node ? `&node=${encodeURIComponent(node)}` : ""}&frame=${frame}&k=${encodeURIComponent(key)}`,
   events: (path: string, onChange: (keys: Record<string, string>) => void): (() => void) => {

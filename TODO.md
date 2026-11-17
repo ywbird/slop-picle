@@ -125,8 +125,8 @@ Done when a person edits a project in the browser, and an edit made through MCP 
 
 ### M5 — Remote
 
-- [ ] `/mcp` Streamable HTTP in `slopc serve`: same tools, same token
-- [ ] Upload PNG assets from the web UI
+- [x] `/mcp` Streamable HTTP in `slopc serve`: same tools, same token
+- [x] Upload PNG assets from the web UI
 
 Done when an agent on another machine connects to `/mcp` with the token and renders, and requests without the token are rejected.
 

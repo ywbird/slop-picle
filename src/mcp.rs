@@ -245,6 +245,17 @@ impl ServerHandler for Slopc {
     }
 }
 
+/// The tools over Streamable HTTP for `slopc serve` (auth is the server's job).
+pub fn http_service(
+    root: PathBuf,
+    evaluator: Arc<Mutex<Evaluator>>,
+) -> rmcp::transport::streamable_http_server::StreamableHttpService<Slopc, rmcp::transport::streamable_http_server::session::local::LocalSessionManager> {
+    use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
+    // Token auth guards against DNS rebinding, so LAN and remote Host headers are allowed.
+    let config = StreamableHttpServerConfig::default().disable_allowed_hosts();
+    StreamableHttpService::new(move || Ok(Slopc::with_evaluator(root.clone(), evaluator.clone())), Default::default(), config)
+}
+
 /// `slopc mcp`: serve on stdio until the client disconnects.
 pub fn run_stdio(root: &Path) -> Result<(), String> {
     let server = Slopc::new(root).map_err(|e| format!("{}: {e}", root.display()))?;

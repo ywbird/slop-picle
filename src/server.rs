@@ -228,6 +228,19 @@ async fn login_h(State(st): State<AppState>, body: Bytes) -> Response {
     }
 }
 
+async fn upload_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: Bytes) -> Result<Response, ApiError> {
+    if !q.path.to_ascii_lowercase().ends_with(".png") {
+        return Err(Error::new("bad_path", format!("'{}' must end in .png", q.path)).into());
+    }
+    let path = sandbox::resolve(&st.root, &q.path)?;
+    crate::surface::Surface::from_png(&body).map_err(|e| Error::new("bad_request", format!("not a usable PNG: {e}")))?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(io_err)?;
+    }
+    project::write_atomic(&path, &body).map_err(io_err)?;
+    Ok((StatusCode::CREATED, Json(json!({ "ok": true, "path": q.path }))).into_response())
+}
+
 fn keys_event(path: &Path) -> Event {
     let k = project::load(path).ok().and_then(|l| l.project).map(|p| keys(path, &p)).unwrap_or_default();
     Event::default().event("changed").data(json!({ "keys": k }).to_string())
@@ -277,6 +290,7 @@ async fn static_h(State(st): State<AppState>, uri: Uri) -> Response {
 }
 
 pub fn router(st: AppState) -> Router {
+    let mcp_service = mcp::http_service(st.root.clone(), st.evaluator.clone());
     let api = Router::new()
         .route("/api/catalog", get(catalog_h))
         .route("/api/projects", get(projects_h).post(create_h))
@@ -284,6 +298,8 @@ pub fn router(st: AppState) -> Router {
         .route("/api/ops", post(ops_h))
         .route("/api/render", get(render_h))
         .route("/api/events", get(events_h))
+        .route("/api/upload", post(upload_h))
+        .nest_service("/mcp", mcp_service)
         .layer(middleware::from_fn_with_state(st.clone(), require_token));
     Router::new()
         .merge(api)

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { InputDef } from "./lib/graph";
+  import { api, ApiFailure } from "./lib/api";
 
   let { def, value, size, change }: { def: InputDef; value: unknown; size: [number, number]; change: (v: unknown) => void } = $props();
 
@@ -16,6 +17,20 @@
     return aa === 255 ? c6 : c6 + aa.toString(16).padStart(2, "0");
   }
   type Grad = { type?: string; keys: { time: number; color: string }[] };
+  let uploadError = $state("");
+
+  async function upload(e: Event & { currentTarget: HTMLInputElement }) {
+    const f = e.currentTarget.files?.[0];
+    if (!f) return;
+    const path = `assets/${f.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+    try {
+      await api.upload(path, f);
+      uploadError = "";
+      change(path);
+    } catch (err) {
+      uploadError = err instanceof ApiFailure ? err.message : String(err);
+    }
+  }
 </script>
 
 {#if def.type === "number" || def.type === "int"}
@@ -56,6 +71,10 @@
   </select>
 {:else if def.type === "string" || def.type === "path"}
   <input value={(value as string) ?? ""} onchange={(e) => change(e.currentTarget.value)} />
+  {#if def.type === "path"}
+    <label class="upload" title="upload a PNG to assets/">⇪<input type="file" accept="image/png" onchange={upload} /></label>
+    {#if uploadError}<span class="error">{uploadError}</span>{/if}
+  {/if}
 {:else if def.type === "palette"}
   {@const cols = (Array.isArray(value) ? value : []) as string[]}
   <div class="list">
@@ -92,4 +111,6 @@
   .col { flex-direction: column; align-items: flex-start; }
   .item { display: inline-flex; gap: 2px; }
   input[type="color"] { width: 32px; padding: 0 2px; height: 24px; }
+  .upload { cursor: pointer; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .upload input { display: none; }
 </style>
