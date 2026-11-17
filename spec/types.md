@@ -10,6 +10,9 @@
 | `color` | `"#rrggbb"` or `"#rrggbbaa"` | hex digits in either case; `#rrggbb` means alpha `ff`; saved as written |
 | `vec2` | `[number, number]` | |
 | `dimension` | `[int, int]` | width, height; each 1–4096, product ≤ 2048² (`out_of_range` / `too_large`) |
+| `padding` | `[int, int, int, int]` | right, top, left, bottom (upstream order); each ≥ 0 (`out_of_range`) |
+| `palette` | `["#rrggbb", ...]` | 1–256 colours (upstream `PALETTE_LIMIT`); empty or longer is `out_of_range` |
+| `gradient` | `{"type": "rgb" \| "constant", "keys": [{"time": t, "color": "#rrggbb"}, ...]}` | 1–16 keys, `time` in 0–1; keys are sorted by time when evaluated |
 | `enum` | string | one of the input's `options` |
 | `string` | string | |
 | `path` | string | relative to the project file's directory; `/` as separator |
@@ -21,7 +24,15 @@ A literal or a ref output fits an input when the types are equal, with these add
 
 - an `int` fits a `number` input;
 - a `number` literal with no fraction (e.g. `3.0`) fits an `int` input;
-- `enum`, `string` and `path` outputs do not exist in M1, so refs to them are not defined yet.
+- `enum`, `string` and `path` outputs do not exist yet, so refs to them are not defined.
+- No node outputs `int` yet (M3 `number` outputs `number`), so TY-09 is tested on the fit rule directly.
+
+### Gradient evaluation
+
+Upstream `gradientEval` (`shaders/sh_gradient`): keys sorted by `time`; `t` before the first key gives the first
+colour, after the last key the last colour; between keys `i−1` and `i`, `rgb` mixes linearly (`f = (t − t₀)/(t₁ − t₀)`,
+alpha mixed too) and `constant` gives key `i−1`. A `t` equal to a key's time gives that key. Upstream's other blend
+types (HSV, OKLAB, …) come later.
 
 Ranges (`min`, `max`) are inclusive and apply to literals only; refs are checked at evaluation (see [evaluation.md](evaluation.md)).
 
@@ -65,8 +76,13 @@ Shape (also the output of `slopc nodes --json`):
 | TY-06 | `bool` input given `1` | `type_mismatch` |
 | TY-07 | every catalog entry | satisfies the catalog rules above (defaults fit type and range, names unique and well-formed, ≥ 1 output, required ⇔ no default) |
 | TY-08 | `slopc nodes --json` | parses; one entry per catalog type; entries equal the shape above |
-| TY-09 | a ref from an `int` output to a `number` input | valid (test added in M3, when value nodes exist) |
-| TY-10 | a ref from a `number` output to an `int` input | `type_mismatch` (test added in M3) |
+| TY-09 | a ref from an `int` output to a `number` input | valid (no node outputs `int` yet; tested by `fits` unit test) |
+| TY-10 | a ref from a `number` output (node `number`) to an `int` input (`noise.seed`) | `type_mismatch` |
 | TY-11 | `dimension` given `[2.5, 1]`, `[1]` | `type_mismatch` each |
 | TY-12 | `dimension` given `[0, 1]`, `[4097, 1]` | `out_of_range` each |
 | TY-13 | `dimension` given `[4096, 4096]` | `too_large` |
+| TY-14 | `palette` given `["#000000", "#ffffff"]` / `[]` / `["red"]` / 257 colours | valid / `out_of_range` / `type_mismatch` / `out_of_range` |
+| TY-15 | `gradient` given `{"type":"rgb","keys":[{"time":0,"color":"#000000"}]}` | valid |
+| TY-16 | `gradient` with `type` `"hsv"`, a key `time` 2, no keys, a key missing `color` | `invalid_enum`, `out_of_range`, `out_of_range`, `type_mismatch` |
+| TY-18 | `padding` given `[1, 0, 1, 0]` / `[1, 2]` / `[-1, 0, 0, 0]` | valid / `type_mismatch` / `out_of_range` |
+| TY-17 | a `color` output (node `color`) into a `solid.color` input; a `number` output into `blend.opacity` | valid |

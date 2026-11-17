@@ -49,6 +49,9 @@ and the content of files it reads (`image`).
   (uniform struct, texture bindings, helpers) is generated from the catalog inputs. Each non-surface input takes one
   16-byte field named after it: number → `vec4<f32>` (`.x`), int → `vec4<i32>` (`.x`), bool and enum index → `vec4<u32>` (`.x`),
   color → `vec4<f32>` in 0–1, vec2 → `vec4<f32>` (`.xy`), dimension → `vec4<u32>` (`.xy`). Strings and paths are not passed.
+  A palette input `p` takes `p_info: vec4<u32>` (count) and `p_colors: array<vec4<f32>, 256>`. A gradient input `g` takes
+  `g_info: vec4<u32>` (key count, 0 = rgb / 1 = constant), `g_times: array<vec4<f32>, 16>` (`.x`, sorted) and
+  `g_colors: array<vec4<f32>, 16>`, with a helper `eval_g(t: f32) -> vec4<f32>`.
   Each surface input `s` gets `s_info: vec4<u32>` (width, height, present) and a helper `load_s(p: vec2<i32>)` that returns
   `(0,0,0,0)` outside the surface. `out_info: vec4<u32>` holds (width, height, frame). A node may add extra `vec4<f32>`
   fields computed on the CPU (e.g. snapped `cos`/`sin`).
@@ -76,7 +79,7 @@ and the content of files it reads (`image`).
 | EV-09 | `image` file content changes between evaluations (same path) | image node and dependents re-run |
 | EV-11 | a project with an unconnected `blend` (missing `background`) and a separate solid target | target evaluates fine |
 | EV-12 | target depends on a node with a missing required input | error `missing_input` naming that node |
-| EV-10 | ref value out of range (an M3 `number` node output of 5 into `blend.opacity`) | clamped to 1 (test added in M3) |
+| EV-10 | ref value out of range (an M3 `number` node output of 5 into `blend.opacity`) | clamped to 1 |
 | GPU-01 | `SLOPC_ADAPTER=no-such-gpu` and render | `gpu_unavailable` |
 | GPU-02 | `validate` with `SLOPC_ADAPTER=no-such-gpu` | succeeds; the GPU is never opened |
 | GPU-03 | upload a 3×2 surface with distinct pixels and read it back | bytes identical, including alpha 0 pixels with non-zero RGB |
