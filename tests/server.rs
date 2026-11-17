@@ -383,3 +383,29 @@ fn srv_19_upload_rejects() {
     let (st, v) = upload(&s, "../a.png", &png);
     assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("path_outside_root")));
 }
+
+#[test]
+fn srv_20_reads_are_not_changes() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
+    s.post("/api/ops?path=a.slopc.json", &solid_output());
+    let r = s.agent.get(format!("{}/api/events?path=a.slopc.json", s.base)).header("Authorization", auth()).call().unwrap();
+    let (tx, rx) = mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(r.into_body().into_reader());
+        let mut line = String::new();
+        while reader.read_line(&mut line).unwrap_or(0) > 0 {
+            if line.starts_with("data: ") && tx.send(line.clone()).is_err() {
+                break;
+            }
+            line.clear();
+        }
+    });
+    rx.recv_timeout(Duration::from_secs(5)).expect("connect event");
+    for _ in 0..5 {
+        assert_eq!(s.get("/api/project?path=a.slopc.json").0, 200);
+        assert_eq!(s.get("/api/render?path=a.slopc.json").0, 200);
+    }
+    assert!(rx.recv_timeout(Duration::from_secs(1)).is_err(), "reads produced a changed event");
+}

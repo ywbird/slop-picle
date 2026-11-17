@@ -55,6 +55,7 @@ are absent.
 
 - On connect: `event: changed` with `data: {"keys": {...}}` for the current file.
 - Whenever the file changes on disk (any writer), within 1 s: another `changed` event with the new keys.
+  Reading the file (by the server itself or anyone else) is not a change and sends nothing.
   Several changes close together may be merged into one event.
 - A comment line `: ping` every 15 s keeps proxies from closing the stream.
 
@@ -90,6 +91,7 @@ Tests start `slopc serve --port 0 --root <tempdir> --token test-token` and parse
 | SRV-13 | `GET /` and `GET /some/page` | 200 `text/html` |
 | SRV-14 | no `--token`, `SLOPC_TOKEN=env-token` | URL shows `env-token`; it authorises |
 | SRV-15 | no token anywhere | URL shows a 32-hex-character token |
+| SRV-20 | subscribe to events, then read the project and render it 5 times | only the connect event within 1 s (regression: reads were reported as changes, making the UI reload in a loop) |
 | SRV-16 | `POST /mcp` `initialize` without token / with Bearer | 401 / a JSON-RPC result |
 | SRV-17 | over `/mcp` with a `Host` header that is not loopback (e.g. `192.168.1.5:7420`): initialize, `tools/list`, create, edit, render | six tools; render returns an image |
 | SRV-18 | `POST /api/upload?path=assets/a.png` with a PNG; then an `image` node reading it is rendered | 201; the file exists; the render shows its pixels |
