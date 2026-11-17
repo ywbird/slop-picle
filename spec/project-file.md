@@ -102,7 +102,9 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 - Writers hold an exclusive advisory lock on the sidecar file `<file>.lock` for the whole read-modify-write.
   The lock is on a sidecar because rename replaces the project file's inode.
 - Readers do not lock; atomic rename means they see the old or the new file, never a mix.
-- An invalid project is never saved.
+- An invalid project is never saved, with one exception: `missing_input` errors are allowed, so a graph can be built
+  step by step (upstream also allows unconnected inputs). Evaluating a node whose dependencies include a missing
+  required input fails with that `missing_input` error.
 
 ## Test cases
 
@@ -139,5 +141,6 @@ An `unknown_type` node is skipped for input checks; refs to it are still checked
 | PF-29 | save of an invalid model | refused with the validation errors; file on disk unchanged |
 | PF-30 | another process holds `<file>.lock` | save waits until it is released, then succeeds |
 | PF-31 | save is interrupted after the temp write (simulated by failing the rename) | original file unchanged; temp file removed |
+| PF-34 | save of a model whose only error is `missing_input` | saved; loading reports the `missing_input` error |
 | PF-32 | node with `"label": "sky gradient"` | valid; kept through save; evaluation output equal to the same node without it |
 | PF-33 | `label` = `5`, and a 501-character string | `type_mismatch`, `out_of_range` |

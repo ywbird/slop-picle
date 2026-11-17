@@ -4,7 +4,8 @@
 
 `evaluate(project, target, frame) → value | error`
 
-- Only valid projects are evaluated.
+- Only valid projects are evaluated, except for `missing_input` errors outside the target's dependencies
+  (see [project-file.md](project-file.md#save)); one inside them is returned as the evaluation error.
 - `target` is a node id, optionally with `.output`. Only the target and the nodes it depends on are evaluated.
 - `frame` is an integer, `0 ≤ frame < settings.frames`; otherwise the error `frame_out_of_range`.
 - Order: dependencies before dependents. Evaluation is deterministic: the same project, target and frame give the same bytes
@@ -44,8 +45,13 @@ and the content of files it reads (`image`).
 - If no adapter is found, commands that render fail with `gpu_unavailable` (CLI exit code 4, see [cli.md](cli.md)).
   Commands that do not render (`validate`, `nodes`, ...) never open the GPU.
 - Textures are `Rgba8Unorm`. Shaders read texels with `textureLoad` at integer coordinates, not samplers.
-- A shader node is: one WGSL fragment shader + its catalog entry. Its uniform struct is generated from the catalog
-  inputs (number → `f32`, int → `i32`, bool → `u32`, color → `vec4<f32>` in 0–1, vec2 → `vec2<f32>`, dimension → `vec2<u32>`, enum → `u32` index).
+- A shader node is: one WGSL function `fn shade(px: vec2<i32>) -> vec4<f32>` + its catalog entry. The prelude
+  (uniform struct, texture bindings, helpers) is generated from the catalog inputs. Each non-surface input takes one
+  16-byte field named after it: number → `vec4<f32>` (`.x`), int → `vec4<i32>` (`.x`), bool and enum index → `vec4<u32>` (`.x`),
+  color → `vec4<f32>` in 0–1, vec2 → `vec4<f32>` (`.xy`), dimension → `vec4<u32>` (`.xy`). Strings and paths are not passed.
+  Each surface input `s` gets `s_info: vec4<u32>` (width, height, present) and a helper `load_s(p: vec2<i32>)` that returns
+  `(0,0,0,0)` outside the surface. `out_info: vec4<u32>` holds (width, height, frame). A node may add extra `vec4<f32>`
+  fields computed on the CPU (e.g. snapped `cos`/`sin`).
 - Float to byte: `round(clamp(v, 0, 1) × 255)`, which is what `Rgba8Unorm` storage does.
 - Random numbers come from an integer hash in `u32` arithmetic (see `noise` in [nodes.md](nodes.md)),
   never from float tricks such as `fract(sin(x))`, so all GPUs give the same bits.
@@ -68,6 +74,8 @@ and the content of files it reads (`image`).
 | EV-07 | evaluate the same target twice in one process | second run executes 0 nodes (counted by an instrumented runner) |
 | EV-08 | chain a→b→c, change an input of b, evaluate c | a not re-run; b and c re-run |
 | EV-09 | `image` file content changes between evaluations (same path) | image node and dependents re-run |
+| EV-11 | a project with an unconnected `blend` (missing `background`) and a separate solid target | target evaluates fine |
+| EV-12 | target depends on a node with a missing required input | error `missing_input` naming that node |
 | EV-10 | ref value out of range (an M3 `number` node output of 5 into `blend.opacity`) | clamped to 1 (test added in M3) |
 | GPU-01 | `SLOPC_ADAPTER=no-such-gpu` and render | `gpu_unavailable` |
 | GPU-02 | `validate` with `SLOPC_ADAPTER=no-such-gpu` | succeeds; the GPU is never opened |
