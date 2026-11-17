@@ -34,14 +34,24 @@ pub struct Ctx<'a> {
     pub project_size: [u32; 2],
     pub frame: i64,
     pub dir: &'a Path,
+    /// When set, files read by nodes must resolve inside this (canonical) directory.
+    pub root: Option<&'a Path>,
 }
 
 impl Ctx<'_> {
     pub fn gpu(&self) -> Result<&'static Gpu, NodeError> {
         Gpu::get().map_err(NodeError::Gpu)
     }
-    pub fn path(&self, rel: &str) -> PathBuf {
-        self.dir.join(rel)
+    /// A file path from a `path` input, relative to the project file and checked against the root.
+    pub fn path(&self, rel: &str) -> Result<PathBuf, NodeError> {
+        let p = self.dir.join(rel);
+        if let Some(root) = self.root {
+            let real = p.canonicalize().map_err(|e| format!("cannot read '{rel}': {e}"))?;
+            if !real.starts_with(root) {
+                return Err(format!("'{rel}' is outside the root").into());
+            }
+        }
+        Ok(p)
     }
 }
 
@@ -52,6 +62,8 @@ struct Entry {
 }
 
 pub struct Evaluator {
+    /// Restrict files read by nodes to this canonical directory (MCP and server).
+    pub root: Option<PathBuf>,
     cache: HashMap<u64, Entry>,
     cache_bytes: usize,
     limit: usize,
@@ -93,7 +105,7 @@ fn hash_value(v: &Value, h: &mut impl Hasher) {
 
 impl Evaluator {
     pub fn new() -> Self {
-        Evaluator { cache: HashMap::new(), cache_bytes: 0, limit: 256 << 20, tick: 0, last: vec![] }
+        Evaluator { root: None, cache: HashMap::new(), cache_bytes: 0, limit: 256 << 20, tick: 0, last: vec![] }
     }
 
     /// Node ids executed (not served from cache) by the last `eval`.
@@ -161,7 +173,7 @@ impl Evaluator {
                 }
             });
         }
-        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, dir: run.dir };
+        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, dir: run.dir, root: self.root.as_deref() };
         let outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
             NodeError::Eval(m) => Error::at("eval_error", id, None, m),
             NodeError::Gpu(m) => Error::at("gpu_unavailable", id, None, m),

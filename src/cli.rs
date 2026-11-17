@@ -66,6 +66,18 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Apply a batch of edit ops (a JSON array, or one op object; `-` reads stdin).
+    Edit {
+        file: PathBuf,
+        ops: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run the MCP server on stdio.
+    Mcp {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
     /// Print the project file's JSON Schema.
     Schema,
 }
@@ -78,6 +90,14 @@ pub fn main() -> i32 {
         Cmd::Show { file, json } => show(&file, json),
         Cmd::Validate { file, json } => validate(&file, json),
         Cmd::Render { file, out, node, frame, scale, json } => render(&file, &out, node.as_deref(), frame, scale, json),
+        Cmd::Edit { file, ops, json } => edit(&file, &ops, json),
+        Cmd::Mcp { root } => match crate::mcp::run_stdio(&root) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("slopc mcp: {e}");
+                EXIT_IO
+            }
+        },
         Cmd::Schema => {
             print!("{}", include_str!("schema.json"));
             0
@@ -320,4 +340,55 @@ fn render(file: &Path, out: &str, node: Option<&str>, frame: i64, scale: u32, js
         println!("wrote {out} ({}x{})", s.width, s.height);
     }
     0
+}
+
+fn edit(file: &Path, ops_arg: &str, json: bool) -> i32 {
+    let text = if ops_arg == "-" {
+        let mut s = String::new();
+        if let Err(e) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut s) {
+            return io_error(json, Path::new("-"), e);
+        }
+        s
+    } else {
+        match std::fs::read_to_string(ops_arg) {
+            Ok(s) => s,
+            Err(e) => return io_error(json, Path::new(ops_arg), e),
+        }
+    };
+    let ops: Json = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => return fail(json, EXIT_INVALID, &[Error::new("bad_op", format!("ops are not valid JSON: {e}"))]),
+    };
+    if !file.exists() {
+        return io_error(json, file, "no such file");
+    }
+    let outcome = match crate::ops::apply_file(file, &ops) {
+        Ok(o) => o,
+        Err(e) => return io_error(json, file, e),
+    };
+    if json {
+        print_json(&crate::ops::outcome_json(&outcome));
+    }
+    match outcome {
+        Ok(a) => {
+            if !json {
+                println!("ok");
+                for id in &a.created {
+                    println!("created {id}");
+                }
+                for w in &a.warnings {
+                    println!("warning: {w}");
+                }
+            }
+            0
+        }
+        Err(e) => {
+            if !json {
+                for e in &e {
+                    eprintln!("{}{e}", e.op.map_or(String::new(), |i| format!("op {i}: ")));
+                }
+            }
+            EXIT_INVALID
+        }
+    }
 }

@@ -192,7 +192,7 @@ const IMAGE_IN: &[I] = &[I::required("path", T::Path, "PNG file, relative to the
 
 fn image(ctx: &mut Ctx, v: &[Value]) -> R {
     let Value::Path(rel) = &v[0] else { unreachable!() };
-    let bytes = std::fs::read(ctx.path(rel)).map_err(|e| format!("cannot read '{rel}': {e}"))?;
+    let bytes = std::fs::read(ctx.path(rel)?).map_err(|e| format!("cannot read '{rel}': {e}"))?;
     out(Surface::from_png(&bytes).map_err(|e| format!("'{rel}': {e}"))?)
 }
 

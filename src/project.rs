@@ -15,6 +15,9 @@ pub const MAX_LABEL: usize = 500;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Error {
     pub code: String,
+    /// Index of the op that failed, for edit batches.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub op: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,10 +27,10 @@ pub struct Error {
 
 impl Error {
     pub fn new(code: &str, message: impl Into<String>) -> Self {
-        Error { code: code.into(), node: None, input: None, message: message.into() }
+        Error { code: code.into(), op: None, node: None, input: None, message: message.into() }
     }
     pub fn at(code: &str, node: &str, input: Option<&str>, message: impl Into<String>) -> Self {
-        Error { code: code.into(), node: Some(node.into()), input: input.map(Into::into), message: message.into() }
+        Error { code: code.into(), op: None, node: Some(node.into()), input: input.map(Into::into), message: message.into() }
     }
 }
 

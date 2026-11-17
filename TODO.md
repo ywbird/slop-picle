@@ -97,12 +97,12 @@ Done when `slopc render examples/hello.slopc.json -o hello.png` matches its gold
 
 ### M2 — Editing and MCP over stdio (AI can work)
 
-- [ ] Ops: `add_node`, `remove_node`, `rename_node`, `move_node`, `set_input`, `unset_input`, `set_settings`
-- [ ] CLI: `slopc edit <file> <ops.json | ->`
-- [ ] `slopc mcp` with six tools: `list_projects`, `create_project`, `read_project`, `edit_project`, `list_node_types`, `render`
-- [ ] `render` returns the PNG scaled up nearest-neighbour, plus stats (size, opaque bounding box, colour count)
-- [ ] Root sandbox: every path resolves inside the root, tested against `..` and symlink escapes
-- [ ] Round-trip test: spawn `slopc mcp`, then create, edit and render
+- [x] Ops: `add_node`, `remove_node`, `rename_node`, `move_node`, `set_input`, `unset_input`, `set_settings`
+- [x] CLI: `slopc edit <file> <ops.json | ->`
+- [x] `slopc mcp` with six tools: `list_projects`, `create_project`, `read_project`, `edit_project`, `list_node_types`, `render`
+- [x] `render` returns the PNG scaled up nearest-neighbour, plus stats (size, opaque bounding box, colour count)
+- [x] Root sandbox: every path resolves inside the root, tested against `..` and symlink escapes
+- [x] Round-trip test: spawn `slopc mcp`, then create, edit and render
 
 Done when an agent builds a sprite from an empty project using MCP tools only.
 
