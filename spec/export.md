@@ -111,8 +111,10 @@ Exit codes as [cli.md](cli.md): 1 invalid project, evaluation error or `out_of_r
 
 An Export button in the top bar opens a dialog: format (GIF, APNG, PNG sequence, PNG image), node (the selected node if
 it outputs a surface, else the output node), range, step, scale, fps, and the output path (default
-`exports/<project name>.gif`, `.apng`, `_%3f.png` or `.png`, editable). Export calls `POST /api/export` and lists the
-written files as download links (`/api/file`). Errors show in the dialog.
+`exports/<project name>.gif`, `.apng`, `_%3f.png` or `.png`, reset when the format changes, editable). Range and step
+apply to GIF, APNG and PNG sequences (range from 1, as the option), fps to GIF and APNG; a PNG image is the frame the
+timeline shows. Export calls `POST /api/export` and lists the written files as download links (`/api/file`). Errors
+show in the dialog. Escape or × closes it.
 
 ## Test cases
 
