@@ -155,8 +155,9 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Areas, in order: animation (keyframes on inputs, Animation nodes, timeline and playback), export (PNG sequence, GIF, sprite sheet), then completing the 33 existing nodes (left-out inputs, all blend modes, gradient blends)
   - [x] One area at a time: spec, tests, code, commit, then report before the next
   - [x] Area 1, animation: keyframed inputs (upstream format and easing), `set_key`/`remove_key`, wiggler, fn_ease, fn_smoothstep, fn_math, revert, anim_speed, rate_remap, delay, anim_loop, frame-aware API, timeline and key buttons (commit 4d30ad6, commit 2f4677a)
-  - [ ] Area 2, export
+  - [x] Area 2, export: `slopc export` (PNG image, `%f` sequence, GIF, APNG), MCP `export`, `POST /api/export` and `GET /api/file`, web export dialog with download links, `render_sprite_sheet` node (commit 264a0ff, commit a1e8719, commit 1eef12a)
     - [x] Following upstream Node_Export and Node_Render_Sprite_Sheet, within the earlier decision that the project has no Export node (the export command picks the path): `slopc export` / MCP `export` / server `POST /api/export` write PNG (single or `%f` sequence), GIF and APNG into the project root; the web UI has an export dialog with download links; `render_sprite_sheet` is a node. WebP/MP4/WebM/JPG are left out (no encoder without ffmpeg)
+    - To confirm: upstream's sprite sheet computes its custom range one way when sizing and another when drawing (negative values and the end frame disagree), so slopc uses one rule: 1-based inclusive, 0 = first/last, -1 = last frame (spec/export.md, Deviation)
   - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
