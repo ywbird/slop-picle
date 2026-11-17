@@ -314,7 +314,10 @@ pub fn router(st: AppState) -> Router {
 fn watch(root: &Path, tx: broadcast::Sender<PathBuf>) -> notify::Result<notify::RecommendedWatcher> {
     use notify::Watcher;
     let mut w = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        if let Ok(ev) = res {
+        // Only writes count; inotify also reports reads (Access), which made readers reload in a loop.
+        if let Ok(ev) = res
+            && matches!(ev.kind, notify::EventKind::Create(_) | notify::EventKind::Modify(_) | notify::EventKind::Remove(_))
+        {
             for p in ev.paths {
                 let _ = tx.send(p);
             }
