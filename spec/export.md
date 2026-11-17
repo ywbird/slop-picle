@@ -43,7 +43,9 @@ its palette is exact; otherwise it is quantised (NeuQuant), which changes colour
 **APNG.** Lossless RGBA; `num_plays = 0` (infinite); each frame's delay is `1/fps` s (`1/fps` exactly for whole fps,
 else `round(1000/fps)/1000`).
 
-Files are written atomically (temp file and rename). The result lists the written paths in order and the frames used.
+Files are written atomically (temp file and rename); missing parent directories are created. GIF and APNG frames must
+all have the size of the first, else `eval_error`; GIF frames are at most 65535 px per side after scaling, else
+`out_of_range`. The result lists the written paths in order and the frames used.
 
 ## Render Spritesheet (node)
 
@@ -82,8 +84,13 @@ largest width and height among the frames. With `n` frames:
 
 A frame smaller than its cell is placed by `alignment` along the cross axis (horizontal: top / middle / bottom;
 vertical: left / middle / right; grid: top-left always, as upstream), `middle` rounding down. No frames (all empty, or
-an empty range) give a 1×1 transparent surface. Deviation: upstream sizes the sheet with `floor((end − start)/step)`
-frames and can clip the last one; slopc counts every exported frame.
+an empty range) give a 1×1 transparent surface; a sheet over the surface size limits is an `eval_error`.
+
+Deviation: upstream has no single rule here. It computes the range one way when it sizes the sheet (`animationInit`:
+negative start `frames − 2 + a`, exclusive end `b`) and another way when it draws (`animationRender`: inclusive end
+`b + 1`), sizes for `floor((end − start)/step)` cells so the last frame can be clipped, places frames by their own size
+rather than a common cell, and aligns against the whole sheet including padding. slopc uses the one rule above for
+sizing and drawing, counts every used frame and aligns inside the cell.
 
 ## CLI
 
