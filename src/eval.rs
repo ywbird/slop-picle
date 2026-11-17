@@ -263,7 +263,10 @@ fn key(run: &mut Run, id: &str) -> Result<u64, Error> {
     let mut h = DefaultHasher::new();
     gnode.def.ty.hash(&mut h);
     if gnode.def.reads_frame {
-        run.frame.hash(&mut h);
+        (run.frame, run.frames, run.fps.to_bits()).hash(&mut h);
+    }
+    if gnode.def.remap.is_some() {
+        remap_key(run, id, &mut h)?;
     }
     for (gi, idef) in gnode.inputs.iter().zip(gnode.def.inputs) {
         match gi {
@@ -291,4 +294,48 @@ fn key(run: &mut Run, id: &str) -> Result<u64, Error> {
     let k = h.finish();
     run.keys.insert(id.into(), k);
     Ok(k)
+}
+
+/// The key of a node in the same graph at another frame.
+fn key_at(run: &Run, id: &str, frame: i64) -> Result<u64, Error> {
+    let mut sub = Run { graph: run.graph, dir: run.dir, frame, frames: run.frames, fps: run.fps, size: run.size, keys: HashMap::new(), outputs: HashMap::new() };
+    key(&mut sub, id)
+}
+
+/// A time-remap node's output is its source at another frame: hash the source's key at that frame, or at every frame
+/// when a parameter comes from a ref (its value is unknown before evaluation).
+fn remap_key(run: &mut Run, id: &str, h: &mut DefaultHasher) -> Result<(), Error> {
+    let gnode = &run.graph.nodes[id];
+    let mut values = Vec::with_capacity(gnode.inputs.len());
+    let mut source = None;
+    let mut known = true;
+    for (gi, idef) in gnode.inputs.iter().zip(gnode.def.inputs) {
+        values.push(match gi {
+            GInput::Value(v) => v.clone(),
+            GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
+            GInput::Ref { node, .. } if idef.ty == Type::Surface => {
+                source = Some(node.clone());
+                Value::None
+            }
+            GInput::Ref { .. } => {
+                known = false;
+                Value::None
+            }
+            GInput::Missing => return Ok(()), // reported by the input loop
+        });
+    }
+    let Some(src) = source else { return Ok(()) };
+    let remap = gnode.def.remap.unwrap();
+    if known {
+        match remap(&values, run.frame, run.frames, run.fps) {
+            Some(f) => key_at(run, &src, f.clamp(0, run.frames - 1))?.hash(h),
+            None => "empty".hash(h),
+        }
+    } else {
+        // shortcut: nested remaps with ref parameters cost frames² key lookups; memoise keys per frame if that gets slow.
+        for f in 0..run.frames {
+            key_at(run, &src, f)?.hash(h);
+        }
+    }
+    Ok(())
 }
