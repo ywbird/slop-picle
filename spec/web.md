@@ -24,8 +24,10 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
   label, and a widget per input type: number and int fields with min/max, bool checkbox, colour picker plus alpha,
   vec2 / dimension / padding as number groups, enum select, string and path text (a `path` input also has an upload
   button: the chosen PNG goes to `assets/<file name>` via `POST /api/upload`, then the input is set to that path),
-  palette as a list of colours (add, remove), gradient as type + key list (time, colour). A ref input shows its source
-  and a disconnect button. Each input has a reset button (unset to default).
+  palette as a list of colours (add, remove), gradient as type + key list (time, colour), curve as its JSON text
+  (shown with the server's error when invalid). `surface` and `any` inputs say "connect in the graph". A ref input
+  shows its source and a disconnect button. Each input has a reset button (unset to default). Connecting checks the
+  fit rules; an `any` output's real type is checked by the server.
 - *Image popup.* Clicking a node's thumbnail opens a floating card beside the node with its first output rendered
   large: pixelated zoom (1–32), frame number (0 … frames − 1) and a link that downloads the PNG. Draggable by its header;
   Esc or its close button closes it. It can be open together with the value popup.
