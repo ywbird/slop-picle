@@ -146,6 +146,10 @@ Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet exp
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
+- [ ] 왜 한 루프가 끝나고 처음으로 돌아왔는데 루프가 시작할때랑 다르게 생긴거야? webui만 그런거야? 그렇다면 고쳐봐
+  - Cause (measured): web UI only. Playback advanced the frame number on a timer while thumbnails changed only after a `/api/project` round trip plus a render per thumbnail (~82 ms each on the debug server); every thumbnail URL carried the frame, so even static nodes reloaded each frame. In two loops the `out` thumbnail showed 4 of 24 frames and was blank in 138 of 153 samples; at the wrap the timeline said 0 while thumbnails still requested frame 23. Server output is deterministic (frame 0 identical before and after rendering all other frames, equal to the CLI).
+  - Also found: cache keys of frame-reading nodes miss `frames`/`fps`, and time-remap nodes are keyed by the source at the current frame instead of the frame they read, so a long-running server could show stale pictures.
+
 - [ ] 아직 원본 프로젝트에서 구현하지 않은 부분을 구현하자.
   - [x] Areas, in order: animation (keyframes on inputs, Animation nodes, timeline and playback), export (PNG sequence, GIF, sprite sheet), then completing the 33 existing nodes (left-out inputs, all blend modes, gradient blends)
   - [x] One area at a time: spec, tests, code, commit, then report before the next
