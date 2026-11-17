@@ -76,7 +76,7 @@ test("WEB-10 connect and edit a widget", async () => {
   expect(read().nodes.out.inputs.surface_in).toEqual({ ref: "n" });
 
   await page.locator('.svelte-flow__node[data-id="n"] .head').click();
-  const seed = page.locator("aside .row", { hasText: "seed" }).locator("input");
+  const seed = page.locator(".popup .row", { hasText: "seed" }).locator("input");
   await seed.fill("5");
   await seed.press("Enter");
   for (let i = 0; i < 50 && read().nodes.n.inputs?.seed !== 5; i++) await Bun.sleep(100);
@@ -95,7 +95,7 @@ test("WEB-11 upload a PNG into an image node", async () => {
   const mk = join(dir, "mk.slopc.json");
   writeFileSync(mk, JSON.stringify({ slopc: 1, settings: { width: 3, height: 2 }, nodes: { s: { type: "solid" } } }));
   expect(await Bun.spawn([bin, "render", mk, "-o", png, "--node", "s"]).exited).toBe(0);
-  await page.locator('aside input[type="file"]').setInputFiles(png);
+  await page.locator('.popup input[type="file"]').setInputFiles(png);
   for (let i = 0; i < 50 && read().nodes.pic.inputs.path !== "assets/src.png"; i++) await Bun.sleep(100);
   expect(read().nodes.pic.inputs.path).toBe("assets/src.png");
   expect(readFileSync(join(dir, "assets", "src.png")).length).toBeGreaterThan(0);
@@ -129,4 +129,65 @@ test("WEB-12 dragging follows the cursor without reloads", async () => {
   for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(start);
   expect(new Set(seen).size).toBeGreaterThan(20);
   expect(reqs.filter((u) => u.includes("/api/ops")).length).toBe(1);
+}, 30000);
+
+
+async function menuOn(selector: string, item: string) {
+  await page.locator(selector).first().click({ button: "right" });
+  await page.locator(".menu button", { hasText: item }).click();
+}
+
+test("WEB-17 no attribution link", async () => {
+  expect(await page.locator(".svelte-flow__attribution").count()).toBe(0);
+});
+
+test("WEB-15 click a node opens its popup beside it; Esc closes", async () => {
+  await page.locator('.svelte-flow__node[data-id="n"] .head').click();
+  const pop = page.locator(".popup");
+  await pop.waitFor();
+  expect(await pop.locator(".row", { hasText: "seed" }).count()).toBe(1);
+  const nb = (await page.locator('.svelte-flow__node[data-id="n"]').boundingBox())!;
+  const pb = (await pop.boundingBox())!;
+  expect(Math.abs(pb.y - nb.y)).toBeLessThan(200);
+  await page.keyboard.press("Escape");
+  await pop.waitFor({ state: "detached" });
+}, 30000);
+
+test("WEB-16 side panel collapses without a selection", async () => {
+  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
+  const panel = page.locator("aside.panel");
+  await page.waitForFunction(() => document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  expect((await panel.boundingBox())!.width).toBeLessThan(60);
+  await page.locator('.svelte-flow__node[data-id="bg"] .head').click();
+  await page.waitForFunction(() => !document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await page.keyboard.press("Escape");
+  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
+  await page.waitForFunction(() => document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await page.locator("aside.panel .toggle").click();
+  await page.waitForFunction(() => !document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await page.locator("aside.panel .toggle").click();
+}, 30000);
+
+test("WEB-14 context menus", async () => {
+  const waitFile = async (ok: (p: any) => boolean) => {
+    for (let i = 0; i < 50 && !ok(read()); i++) await Bun.sleep(100);
+    expect(ok(read())).toBe(true);
+  };
+  // Duplicate n (a noise with seed 5).
+  await menuOn('.svelte-flow__node[data-id="n"] .head', "Duplicate");
+  await waitFile((p) => Object.values(p.nodes).filter((x: any) => x.type === "noise" && x.inputs?.seed === 5).length === 2);
+  // Delete the checker added in WEB-09.
+  await menuOn('.svelte-flow__node[data-id="extra"] .head', "Delete");
+  await waitFile((p) => !p.nodes.extra);
+  // Disconnect out.surface_in.
+  const edge = page.locator('.svelte-flow__edge[data-id="n.surface_out->out.surface_in"] .svelte-flow__edge-interaction');
+  await edge.dispatchEvent("contextmenu", { button: 2 });
+  await page.locator(".menu button", { hasText: "Disconnect" }).click();
+  await waitFile((p) => !p.nodes.out.inputs?.surface_in);
+  // Canvas menu: add a solid at the cursor.
+  const before = Object.keys(read().nodes).length;
+  await page.locator(".svelte-flow__pane").click({ button: "right", position: { x: 60, y: 820 } });
+  await page.locator(".menu input").fill("solid");
+  await page.keyboard.press("Enter");
+  await waitFile((p) => Object.keys(p.nodes).length === before + 1);
 }, 30000);

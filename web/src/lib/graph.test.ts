@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   addOp,
   connectOp,
+  duplicateOp,
   edgeDeleteOp,
   fits,
   literalOp,
@@ -113,4 +114,10 @@ test("WEB-07 thumbUrl", () => {
   expect(u).toContain("path=art%2Fa%20b.slopc.json");
   expect(u).toContain("node=n1");
   expect(u).toContain("k=00ff");
+});
+
+test("WEB-13 duplicateOp", () => {
+  const n = { type: "blend", label: "mix", inputs: { background: { ref: "a" }, opacity: 0.5 }, pos: [10, 20] as [number, number] };
+  expect(duplicateOp(n)).toEqual({ op: "add_node", type: "blend", label: "mix", inputs: { background: { ref: "a" }, opacity: 0.5 }, pos: [50, 60] });
+  expect(duplicateOp({ type: "solid" })).toEqual({ op: "add_node", type: "solid", pos: [40, 40] });
 });
