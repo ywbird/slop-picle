@@ -162,6 +162,13 @@ User feedback as a checklist. Points that need a decision are indented under the
     - [x] Following upstream Node_Export and Node_Render_Sprite_Sheet, within the earlier decision that the project has no Export node (the export command picks the path): `slopc export` / MCP `export` / server `POST /api/export` write PNG (single or `%f` sequence), GIF and APNG into the project root; the web UI has an export dialog with download links; `render_sprite_sheet` is a node. WebP/MP4/WebM/JPG are left out (no encoder without ffmpeg)
     - To confirm: upstream's sprite sheet computes its custom range one way when sizing and another when drawing (negative values and the end frame disagree), so slopc uses one rule: 1-based inclusive, 0 = first/last, -1 = last frame (spec/export.md, Deviation)
   - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
+    - [x] Scope, following upstream: every upstream input of the 33 nodes (about 200, counted from upstream's `newInput` lists), in steps, each with spec, tests and commits
+    - [x] 3.1 all 25 upstream blend modes, shared by every node with a blend mode (commit 9dcbeb4)
+    - [ ] 3.2 blend node inputs: mask, swap, invert mask, mask feather, output dimension, constant dimension, fill mode
+    - [ ] 3.3 gradient blends (gradient interpolation types)
+    - [ ] 3.4 curve and any types; anim_curve, stagger, delay_value; curve inputs
+    - [ ] 3.5 shared modifiers: mask, mix and channels on filters, UV map on generators
+    - [ ] 3.6 the remaining inputs, node by node
 
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
 - [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
