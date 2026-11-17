@@ -146,7 +146,7 @@ Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet exp
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-- [ ] 이름 picle로 결정했어
+- [x] 이름 picle로 결정했어 (commit cce5a95)
   - [x] Everything is renamed: binary and crate `picle`, project files `*.picle.json` with `"picle": 1`, `PICLE_TOKEN`, `PICLE_ADAPTER`, the `picle_token` cookie, the web UI and the docs
   - [x] No compatibility: old `*.slopc.json` files are not read; the examples move to the new name
 
