@@ -137,6 +137,44 @@ async function menuOn(selector: string, item: string) {
   await page.locator(".menu button", { hasText: item }).click();
 }
 
+test("WEB-20 box select and group move", async () => {
+  const box = async (id: string) => (await page.locator(`.svelte-flow__node[data-id="${id}"]`).boundingBox())!;
+  const a = await box("bg");
+  const b = await box("n");
+  const x0 = Math.min(a.x, b.x) - 12, y0 = Math.min(a.y, b.y) - 12;
+  const x1 = Math.max(a.x + a.width, b.x + b.width) + 12, y1 = Math.max(a.y + a.height, b.y + b.height) + 12;
+  await page.mouse.move(x1, y1);
+  await page.mouse.down();
+  await page.mouse.move(x0, y0, { steps: 15 });
+  await page.mouse.up();
+  const sel = await page.evaluate(() => [...document.querySelectorAll(".svelte-flow__node.selected")].map((e) => e.getAttribute("data-id")));
+  expect(sel).toContain("bg");
+  expect(sel).toContain("n");
+  const before = read().nodes;
+  const bodies: string[] = [];
+  const onReq = (r: { url(): string; postData(): string | null }) => r.url().includes("/api/ops") && bodies.push(r.postData() ?? "");
+  page.on("request", onReq);
+  const h = (await page.locator('.svelte-flow__node[data-id="n"] .head').boundingBox())!;
+  await page.mouse.move(h.x + 30, h.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(h.x + 90, h.y + 48, { steps: 10 });
+  await page.mouse.up();
+  for (let i = 0; i < 50 && JSON.stringify(read().nodes.bg.pos) === JSON.stringify(before.bg.pos); i++) await Bun.sleep(100);
+  page.off("request", onReq);
+  const after = read().nodes;
+  expect(after.bg.pos).not.toEqual(before.bg.pos);
+  expect(after.n.pos).not.toEqual(before.n.pos);
+  expect(bodies.length).toBe(1);
+  const ops = JSON.parse(bodies[0]);
+  expect(ops.filter((o: any) => o.op === "move_node").map((o: any) => o.id)).toEqual(expect.arrayContaining(["bg", "n"]));
+  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
+}, 30000);
+
+test("WEB-19 line grid background", async () => {
+  expect(await page.locator(".svelte-flow__background").count()).toBe(2);
+  expect(await page.locator(".svelte-flow__background pattern path").count()).toBeGreaterThanOrEqual(2);
+});
+
 test("WEB-17 no attribution link", async () => {
   expect(await page.locator(".svelte-flow__attribution").count()).toBe(0);
 });
@@ -153,19 +191,39 @@ test("WEB-15 click a node opens its popup beside it; Esc closes", async () => {
   await pop.waitFor({ state: "detached" });
 }, 30000);
 
-test("WEB-16 side panel collapses without a selection", async () => {
-  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
-  const panel = page.locator("aside.panel");
-  await page.waitForFunction(() => document.querySelector("aside.panel")!.getBoundingClientRect().width < 60);
-  expect((await panel.boundingBox())!.width).toBeLessThan(60);
+test("WEB-16 settings panel: collapsed by default, only its toggle opens it", async () => {
+  const collapsed = () => page.evaluate(() => document.querySelector("aside.panel")!.classList.contains("collapsed"));
+  expect(await collapsed()).toBe(true);
   await page.locator('.svelte-flow__node[data-id="bg"] .head').click();
-  await page.waitForFunction(() => !document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await Bun.sleep(300);
+  expect(await collapsed()).toBe(true);
   await page.keyboard.press("Escape");
-  await page.locator(".svelte-flow__pane").click({ position: { x: 5, y: 400 } });
-  await page.waitForFunction(() => document.querySelector("aside.panel")?.classList.contains("collapsed"));
   await page.locator("aside.panel .toggle").click();
-  await page.waitForFunction(() => !document.querySelector("aside.panel")?.classList.contains("collapsed"));
+  await page.waitForFunction(() => !document.querySelector("aside.panel")!.classList.contains("collapsed"));
+  expect(await page.locator("aside.panel input[type=number]").count()).toBe(4);
+  expect(await page.locator("aside.panel img").count()).toBe(0);
   await page.locator("aside.panel .toggle").click();
+  await page.waitForFunction(() => document.querySelector("aside.panel")!.getBoundingClientRect().width < 60);
+}, 30000);
+
+test("WEB-18 thumbnail opens the image popup", async () => {
+  await page.locator('.svelte-flow__node[data-id="bg"] img.thumb').click();
+  const card = page.locator(".image-popup");
+  await card.waitFor();
+  const img = card.locator("img");
+  await page.waitForFunction(() => {
+    const i = document.querySelector<HTMLImageElement>(".image-popup img");
+    return !!i && i.complete && i.naturalWidth === 16;
+  });
+  const zoom = card.locator('input[type="range"]');
+  await zoom.fill("4");
+  const w4 = (await img.boundingBox())!.width;
+  await zoom.fill("12");
+  const w12 = (await img.boundingBox())!.width;
+  expect(Math.round(w12 / w4)).toBe(3);
+  expect(await card.locator('a[download]').getAttribute("href")).toContain("/api/render");
+  await page.keyboard.press("Escape");
+  await card.waitFor({ state: "detached" });
 }, 30000);
 
 test("WEB-14 context menus", async () => {
