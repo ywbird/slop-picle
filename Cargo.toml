@@ -11,3 +11,7 @@ pollster = "1.0.1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan", "metal", "dx12", "std"] }
+
+[dev-dependencies]
+jsonschema = "0.61.2"
+tempfile = "3.27.0"

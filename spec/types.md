@@ -65,8 +65,8 @@ Shape (also the output of `slopc nodes --json`):
 | TY-06 | `bool` input given `1` | `type_mismatch` |
 | TY-07 | every catalog entry | satisfies the catalog rules above (defaults fit type and range, names unique and well-formed, ≥ 1 output, required ⇔ no default) |
 | TY-08 | `slopc nodes --json` | parses; one entry per catalog type; entries equal the shape above |
-| TY-09 | a ref from an `int` output to a `number` input | valid |
-| TY-10 | a ref from a `number` output to an `int` input | `type_mismatch` |
+| TY-09 | a ref from an `int` output to a `number` input | valid (test added in M3, when value nodes exist) |
+| TY-10 | a ref from a `number` output to an `int` input | `type_mismatch` (test added in M3) |
 | TY-11 | `dimension` given `[2.5, 1]`, `[1]` | `type_mismatch` each |
 | TY-12 | `dimension` given `[0, 1]`, `[4097, 1]` | `out_of_range` each |
 | TY-13 | `dimension` given `[4096, 4096]` | `too_large` |

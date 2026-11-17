@@ -1,0 +1,56 @@
+{
+  "slopc": 1,
+  "settings": {
+    "width": 32,
+    "height": 32,
+    "frames": 1,
+    "fps": 12
+  },
+  "nodes": {
+    "bg": {
+      "type": "solid",
+      "inputs": {
+        "color": "#1a1c2c"
+      },
+      "pos": [0, 0]
+    },
+    "sparkle": {
+      "type": "noise",
+      "label": "coloured static in the middle",
+      "inputs": {
+        "dimension": [16, 16],
+        "seed": 7,
+        "color_mode": "rgb",
+        "color_r_range": [0.5, 1],
+        "color_g_range": [0.2, 0.6],
+        "color_b_range": [0.3, 0.9]
+      },
+      "pos": [0, 160]
+    },
+    "turn": {
+      "type": "transform",
+      "inputs": {
+        "surface_in": { "ref": "sparkle" },
+        "rotation": 90,
+        "scale": [0.5, 1]
+      },
+      "pos": [240, 160]
+    },
+    "mix": {
+      "type": "blend",
+      "inputs": {
+        "background": { "ref": "bg" },
+        "foreground": { "ref": "turn" },
+        "opacity": 0.75
+      },
+      "pos": [480, 0]
+    },
+    "out": {
+      "type": "output",
+      "inputs": {
+        "surface_in": { "ref": "mix" }
+      },
+      "pos": [720, 0]
+    }
+  }
+}
