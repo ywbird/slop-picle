@@ -43,6 +43,8 @@ Errors are `{"ok": false, "errors": [...]}` (shapes from [project-file.md](proje
 | `POST /api/ops` | `?path=`, body: ops array | `200` batch result ([ops.md](ops.md)) plus `undo` and `redo` op lists ([ops.md](ops.md#undo-data)), or `422` with the errors |
 | `GET /api/render` | `?path=&node=&frame=&scale=` | `image/png` (scale 1–32, default 1; node default as CLI) |
 | `GET /api/events` | `?path=` | Server-Sent Events, see below |
+| `POST /api/export` | `?path=`, body: export options | `{ ok, files, frames }` ([export.md](export.md#mcp-and-server)) |
+| `GET /api/file` | `?path=` (`.png`, `.gif`, `.apng`) | the file as an attachment |
 | `POST /api/upload` | `?path=` (a `.png` path), body: PNG bytes | M5: `201 { ok, path }`; not a decodable PNG within the size limits → `400 bad_request` |
 
 `keys` are the evaluator cache keys ([evaluation.md](evaluation.md#cache)): they change exactly when a node's output
@@ -94,6 +96,6 @@ Tests start `slopc serve --port 0 --root <tempdir> --token test-token` and parse
 | SRV-20 | subscribe to events, then read the project and render it 5 times | only the connect event within 1 s (regression: reads were reported as changes, making the UI reload in a loop) |
 | SRV-21 | apply a batch, then post its `undo`, then its `redo` | each 200; the file returns to the original, then to the edited state |
 | SRV-16 | `POST /mcp` `initialize` without token / with Bearer | 401 / a JSON-RPC result |
-| SRV-17 | over `/mcp` with a `Host` header that is not loopback (e.g. `192.168.1.5:7420`): initialize, `tools/list`, create, edit, render | six tools; render returns an image |
+| SRV-17 | over `/mcp` with a `Host` header that is not loopback (e.g. `192.168.1.5:7420`): initialize, `tools/list`, create, edit, render | seven tools; render returns an image |
 | SRV-18 | `POST /api/upload?path=assets/a.png` with a PNG; then an `image` node reading it is rendered | 201; the file exists; the render shows its pixels |
 | SRV-19 | upload of non-PNG bytes / to `a.txt` / to `../a.png` | 400 `bad_request` / 400 `bad_path` / 400 `path_outside_root` |

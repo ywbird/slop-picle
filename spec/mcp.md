@@ -25,6 +25,7 @@ A failure sets `isError: true` and the JSON is `{ "ok": false, "errors": [...] }
 | `edit_project` | `path`, `ops` (array) | the batch result from [ops.md](ops.md) |
 | `list_node_types` | optional `type` | without: `[{type, category, description}]`; with: the catalog entry |
 | `render` | `path`, optional `node`, `frame` (0), `scale` | PNG image + `{ width, height, scale, opaque_bbox, colors }` |
+| `export` | `path`, `out`, optional `node`, `range`, `step`, `begin`, `scale`, `fps`, `frame` | `{ files, frames }` ([export.md](export.md)); `out` inside the root |
 
 `render`:
 
@@ -42,7 +43,7 @@ Tests spawn `slopc mcp --root <tempdir>` and speak JSON-RPC over its stdio.
 
 | ID | Given | Expected |
 |---|---|---|
-| MCP-01 | `initialize`, then `tools/list` | the six tools, each with an input schema |
+| MCP-01 | `initialize`, then `tools/list` | the seven tools, each with an input schema |
 | MCP-02 | `create_project a.slopc.json`, then `list_projects` | `["a.slopc.json"]` |
 | MCP-03 | `create_project` twice | second fails with `exists`, `isError` |
 | MCP-04 | `edit_project` adding solid + output, then `render` | image content (PNG, base64) whose decoded size is scale × project size; stats JSON correct |

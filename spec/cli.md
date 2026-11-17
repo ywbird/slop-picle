@@ -58,6 +58,10 @@ Applies a batch of ops ([ops.md](ops.md)) under the project lock. The input is a
 object; `-` reads stdin. Exit 0 if applied, 1 if rejected (file unchanged), 3 on I/O errors. `--json` prints the batch
 result; text mode prints `ok` (plus warnings) or the errors.
 
+### `slopc export <file> -o <out> [options]`
+
+Writes PNG images or sequences, GIFs and APNGs ([export.md](export.md)).
+
 ### `slopc mcp [--root DIR]`
 
 Runs the MCP server on stdio ([mcp.md](mcp.md)).

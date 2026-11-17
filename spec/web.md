@@ -36,6 +36,7 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
   the animation, as upstream); the wheel zooms. Dragging any selected node moves the whole selection, saved as one batch of `move_node` ops.
 - *Context menus* (right click). On a node: Delete, Duplicate. On an edge: Disconnect. On the empty canvas: the
   add-node search, adding at the cursor. Esc or a click elsewhere closes the menu.
+- *Export.* A top-bar button opens the export dialog ([export.md](export.md#web-ui)).
 - *Add node.* A search box (top left, and in the canvas menu) listing catalog types by name, category and
   description.
 
