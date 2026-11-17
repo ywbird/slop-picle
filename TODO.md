@@ -155,7 +155,7 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Side panel keeps preview + project settings; opens with a selection, collapses without one, has a manual toggle
 - [ ] webui: design-taste-frontend 스킬 써서 ui 개선.
 
-- [x] 노드를 드래그 할때, 드래그 전 위치로 순간이동 했다가, 커서로 순간이동 했다가, 왔다갔다를 반복하고 깜빡거려.
+- [x] 노드를 드래그 할때, 드래그 전 위치로 순간이동 했다가, 커서로 순간이동 했다가, 왔다갔다를 반복하고 깜빡거려. (commit 0d41c8b)
   - Cause: the server's file watcher reported reads as changes, so every project read sent a `changed` event and the UI reloaded in a loop, resetting the dragged node each time. Fixed in `src/server.rs`; regression tests SRV-20 and WEB-12.
 
 - [x] Add rule: write the SPEC first, then work
@@ -177,4 +177,5 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Blend: follow upstream `position` (centred), replacing the earlier top-left decision
   - [x] Applied without asking (upstream answers them): upstream input/output names in snake case, `solid` default white, `noise` is white noise with colour modes (value noise moves to a later Perlin-like node), `transform` uses `position`/`anchor` with counter-clockwise rotation and `alpha`, blend modes and formulas ported from `sh_blend_*`, optional `foreground`, `preserve_alpha`, size input named `dimension`
 - [x] Ask questions in Korean
+- [x] Add rule: when a fix is done, attach the commit id that contains it
 

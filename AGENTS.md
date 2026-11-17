@@ -6,6 +6,7 @@
    or when it conflicts with a decision recorded in `TODO.md`. Do not guess.
 2. `TODO.md` has a `Feedback` section. Every piece of user feedback goes there as a checkbox item.
    If working on an item raises an ambiguity, list the points to confirm as an indented list under that item.
+   When an item is done, check it and append the id of the commit that contains the fix: `(commit abc1234)`.
 3. Commit to git after every change.
 4. Everything in the repository is written in English: docs, code, comments, commit messages.
    Questions to the user are asked in Korean.
@@ -20,6 +21,7 @@ Feedback format:
 ```markdown
 - [ ] The feedback, close to the user's own words
   - To confirm: the open question
+- [x] A finished item (commit abc1234)
 ```
 
 The plan, the decisions and the milestones live in `TODO.md`. Specs live in `spec/`, see `spec/README.md`.

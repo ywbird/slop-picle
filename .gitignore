@@ -3,3 +3,4 @@
 /web/dist
 *.tmp-*
 *.slopc.json.lock
+/.taste-skill
