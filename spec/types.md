@@ -13,10 +13,12 @@
 | `padding` | `[int, int, int, int]` | right, top, left, bottom (upstream order); each ≥ 0 (`out_of_range`) |
 | `palette` | `["#rrggbb", ...]` | 1–256 colours (upstream `PALETTE_LIMIT`); empty or longer is `out_of_range` |
 | `gradient` | `{"type": "rgb" \| "constant" \| "hsv" \| "hsv_inverted" \| "oklab" \| "cmyk", "keys": [{"time": t, "color": "#rrggbb"}, ...]}` | 1–16 keys, `time` in 0–1; keys are sorted by time when evaluated |
+| `curve` | `{"points": [{"x": 0, "y": 0, "out": [dx, dy]}, {"x": 1, "y": 1, "in": [dx, dy]}], "type": "bezier", "range": [0, 1], "shift": 0, "scale": 1}` | upstream animation curve; 2–16 points, `x` in 0–1, `in`/`out` handle offsets (default `[0, 0]`); `type` `bezier` or `step` (default `bezier`); `range` `[min y, max y]` (default `[0, 1]`); `shift`, `scale` move and stretch `x` (defaults 0, 1; `scale` ≠ 0) |
 | `enum` | string | one of the input's `options` |
 | `string` | string | |
 | `path` | string | relative to the project file's directory; `/` as separator |
 | `surface` | — | an image; only reachable through a ref |
+| `any` | — | upstream `VALUE_TYPE.any`: refs only; carries whatever value its source gives |
 
 ### Fit rules
 
@@ -24,7 +26,10 @@ A literal or a ref output fits an input when the types are equal, with these add
 
 - an `int` fits a `number` input;
 - a `number` literal with no fraction (e.g. `3.0`) fits an `int` input;
-- `enum`, `string` and `path` outputs do not exist yet, so refs to them are not defined.
+- `enum`, `string` and `path` outputs do not exist yet, so refs to them are not defined;
+- an `any` input fits every output; an `any` output has the type of the source of its node's first `any` input. When
+  that is unknown (unset, or itself unknown), refs from it are checked at evaluation instead (`type_mismatch` there,
+  also for a missing value).
 - No node outputs `int` yet (M3 `number` outputs `number`), so TY-09 is tested on the fit rule directly.
 
 ### Gradient evaluation
@@ -44,6 +49,21 @@ mixes linearly and the colour by `type` (upstream editor names in brackets):
 | `cmyk` (CMYK) | `k = 1 − max(r, g, b)`, `(c, m, y) = (1 − rgb − k)/(1 − k)` for both, mixed, then `rgb = (1 − (c, m, y))·(1 − k)`; deviation: black (`k = 1`) gives `(0, 0, 0, 1)` where upstream divides by 0 |
 
 Upstream's `srgb` blend (type 4) is left out: its editor does not offer it.
+
+### Curve evaluation
+
+Upstream `eval_curve_x` (`scripts/curve_bezier_function`; upstream stores a curve as a flat array, slopc as the object
+above). Points are sorted by `x`. For input `x`: `x' = clamp(x / scale − shift, 0, 1)`; `lo, hi = range` (both 0 means
+`0, 1`); the result is `lerp(lo, hi, y)` with `y`:
+
+- `bezier`: the first pair of neighbouring points with `x₀ ≤ x' ≤ x₁`. Handles `dx₀, dy₀` = `out` of the first,
+  `dx₁, dy₁` = `in` of the second; if `|dx₀| + |dx₁| > 2|x₁ − x₀|` both `dx` scale down by `2|x₁ − x₀| / (|dx₀| + |dx₁|)`.
+  `rx = x₁ − x₀`, `t = (x' − x₀)/rx`. All four handle values 0: `y = lerp(y₀, y₁, t)`. Otherwise a cubic Bézier with
+  x controls `0, dx₀/rx, 1 + dx₁/rx, 1` and y controls `y₀, y₀ + dy₀, y₁ + dy₁, y₁`: if all y controls are equal,
+  that value; else solve `x(u) = t` by Newton's method from `u = t` (8 steps, stop when `|x(u) − t| < 0.0001`), then
+  `y = y(u)`. No such pair (the points do not cover `x'`): `y` of the last point (upstream).
+- `step`: `y = y` of the first point; for each point but the last, in order: if `x' ≤ point.x` stop, else `y =
+  point.y` (so the last point only marks the end, as upstream).
 
 Ranges (`min`, `max`) are inclusive and apply to literals only; refs are checked at evaluation (see [evaluation.md](evaluation.md)).
 
@@ -98,4 +118,7 @@ Shape (also the output of `slopc nodes --json`):
 | TY-16 | `gradient` with `type` `"lab"`, a key `time` 2, no keys, a key missing `color` | `invalid_enum`, `out_of_range`, `out_of_range`, `type_mismatch` |
 | TY-19 | `colorize` of a #808080 `solid` (`t` = 128/255) with keys red at 0 and blue at 1: `rgb`, `constant`, `hsv`, `hsv_inverted`, `oklab`; red to black, `cmyk` | (127,0,128), (255,0,0), (254,0,255), (0,255,2), (139,84,161); (127,64,64); each ± 2 |
 | TY-18 | `padding` given `[1, 0, 1, 0]` / `[1, 2]` / `[-1, 0, 0, 0]` | valid / `type_mismatch` / `out_of_range` |
+| TY-20 | `curve` given the linear default; one point; 17 points; `type` `"spline"`; `scale` 0; a point without `y` | valid; `out_of_range`; `out_of_range`; `invalid_enum`; `out_of_range`; `type_mismatch` |
+| TY-21 | `anim_curve` (`progress` = x) with curve L (linear 0→1, handles ±1/3) at 0.25; D (1→0, handles `[1/3, −1/3]`, `[−1/3, 1/3]`) at 0.25; E (`out [0.6, 0]`, `in [−0.2, −0.2]`) at 0.25 and 0.5; S (`step`, points (0, 0), (0.5, 1), (1, 0.5)) at 0.25, 0.75, 1; L with `range [2, 4]` at 0.5; L with `scale 2` at 0.5; points (0.5, 0.2), (1, 0.8) at 0.25 | 0.25; 0.75; 0.0517, 0.2338; 0, 1, 1; 3; 0.25; 0.8 (each ± 0.0005) |
+| TY-22 | `delay_value` with a `color` node as `value`, into `solid.color`; with a `solid` as `value`, into `solid.color`; with `value` unset, into `solid.color` | valid; `type_mismatch`; `missing_input` (a warning) |
 | TY-17 | a `color` output (node `color`) into a `solid.color` input; a `number` output into `blend.opacity` | valid |

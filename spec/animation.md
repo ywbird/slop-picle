@@ -82,6 +82,7 @@ Animations can be written whole with `set_input`. Two ops edit single keys ([ops
 | `fn_ease` (`Node_Fn_Ease`) | `range` vec2 `[0, 1]`; `amount` vec2 `[0.1, 0.9]`; `smooth` enum `cubic_poly`, `quadratic_rat`, `cubic_rat`, `cosine` | `x = frame / T`; 0 outside `range`; else `s(clamp(min(a₀ = 0 ? 1 : (x − r₀)/a₀, b = 0 ? 1 : 1 − (x − (r₁ − b))/b), 0, 1))` with `b = 1 − a₁`; reads the frame |
 | `fn_smoothstep` (`Node_Fn_SmoothStep`) | `value` number 0; `type` enum as `smooth` | `s(value)` |
 | `fn_math` (`Node_Fn_Math`) | `operation` enum `add`, `minus`, `multiply` (default `multiply`); `value_1`, `value_2` numbers 0 | the operation |
+| `anim_curve` (`Node_Anim_Curve`, "Evaluate Curve"; output named `curve`) | `curve` curve (linear 0→1, handles ±1/3); `animated` bool false; `progress` number 0, 0–1; `minimum` number 0; `maximum` number 1 | `t = animated ? f / (T − 1) : progress` (`T = 1`: 0); `lerp(minimum, maximum, curve(t))` ([types.md](types.md#curve-evaluation)); reads the frame. Upstream's `Display Type` (node drawing) is left out |
 
 Smooth functions `s(x)`: `cubic_poly` `x²(3 − 2x)`; `quadratic_rat` `x²/(2x² − 2x + 1)`; `cubic_rat`
 `x³/(3x² − 3x + 1)`; `cosine` `0.5 − 0.5 cos(πx)`.
@@ -103,10 +104,18 @@ input's size at the current frame. All read the frame. `T = settings.frames`, `f
 | `anim_speed` (`Node_Anim_Speed`) | `surface_in` required; `speed` number 1; `overflow` enum `loop`, `pingpong`, `empty` (`surface_out`) | `x = f·speed`; `loop`: `x mod T`; `pingpong`: `x mod (2T + 1)`, then `2T − x` if `x > T`; `empty`: empty if `x < 0` or `x ≥ T`. `s = floor(x)`, clamped to `0 … T − 1` |
 | `rate_remap` (`Node_Rate_Remap`) | `surface` required; `framerate` number 10, ≥ 1; `offset` number 0; `loop` bool true (`surface`) | `x = f − offset`, `loop` → `x mod T` (non-negative); `step = fps / framerate`; `s = floor(floor(x / step)·step)` |
 | `delay` (`Node_Delay`) | `surface` required; `frames` int 1; `overflow` enum `hold`, `loop`, `clear` (`surface`) | `x = f − frames`; `hold`: clamp to `0 … T − 1`; `loop`: `(x mod T)` non-negative; `clear`: empty outside `0 … T − 1` |
+| `stagger` (`Node_Stagger`) | `surface` required; `stagger_curve` curve (linear 0→1); `delay_step` number 1; `delay_frame` number 1; `overflow` enum `hide`, `clamp`, `loop` (`surface`) | one surface (slopc has no arrays yet, so upstream's per-element delay reduces to element 0): `n = floor(1 / delay_step)`; `x = round(f − curve(0)·delay_frame·n)` (`n = 0`: `x = f`; deviation, upstream divides 0 by 0); `hide`: empty outside `0 … T − 1`; `clamp`; `loop`: `x mod T` non-negative |
 | `anim_loop` (`Node_Anim_Loop`) | `surface` required; `loop_type` enum `loop`, `pingpong`; `loop_start` int 1; `loop_range` int 4; `infinite` bool true; `loop_amount` int 1; `pre_loop`, `post_loop` enum `passthrough`, `empty` (defaults `passthrough`, `empty`) (`surface`) | `start = loop_start − 1`, `range = loop_range = 0 ? T − loop_start : loop_range`; `f < start`: pre-loop (`f` or empty); `n = floor((f − start)/range)`; `n > loop_amount` and not `infinite`: post-loop (`f` or empty); else `p = (f − start) mod range`, `s = start + p` for `loop`, and for `pingpong` `start + p` on even `n`, `start + range − 1 − p` on odd `n` |
 
-Left out of this area: `Node_Anim_Curve` and `Node_Stagger` (they need a curve input type), `Node_Delay_Value`
-(an "any" type), audio, optical flow, keyframe drivers, `Node_Timeline_Preview`. They move to the node-completion area.
+### Delayed values
+
+`delay_value` (`Node_Delay_Value`) does for any value what `delay` does for surfaces: inputs `value` any, required;
+`frames` int 1; `overflow` enum `hold`, `loop`, `value`; `default` any (output `value`, any). `x = f − frames`;
+`hold`: clamp to `0 … T − 1`; `loop`: `(x + T) rem T` with a truncating remainder, as upstream, and `default` when that
+is negative; `value`: `default` outside `0 … T − 1`. The output is `value` evaluated at frame `x`. Deviation: upstream
+returns values it recorded while playing (so frames never played give `default`); slopc evaluates frame `x` directly.
+
+Left out of this area: audio, optical flow, keyframe drivers, `Node_Timeline_Preview`.
 
 ## Server
 
@@ -159,6 +168,9 @@ The tool instructions mention keyframes (`set_key`, the `anim` form) and that `r
 | AN-N6 | `delay` frames 2, frames 8: frame 0 (`hold`), 1 (`loop`), 1 (`clear`), 5 | source 0; 7; transparent; 3 |
 | AN-N7 | `anim_loop` `loop_start 2`, `loop_range 3`, frames 12: frames 0, 1, 4, 5, 9; `pingpong` frames 4, 5, 6 | source 0 (pre-loop pass), 1, 1, 2, 3; 3, 2, 1 |
 | AN-N8 | one evaluator: `revert` at frame 0 (source frame 7), then the project with the source's key at frame 7 changed | the new colour (regression: the key used the source at frame 0, so the old picture came back) |
+| AN-N9 | `anim_curve` `animated`, `minimum 0`, `maximum 10`, frames 5: frames 0, 2, 4 | 0, 5, 10 |
+| AN-N10 | `delay_value` `frames 2` of a `number` cut-keyed to its frame, frames 8: frame 5; frame 0 (`hold`); frame 1 (`loop`); frame 1 (`value`, `default` a `number` 42); the same with a `solid` as `value` into `blend.background`, frame 5 | 3; 0; 7; 42; the solid at frame 3 |
+| AN-N11 | `stagger` over a cut-keyed colour per frame, frames 8: default curve, frame 5; curve flat at 1, `delay_frame 2`: frame 5, frame 1 (`hide`), frame 1 (`clamp`), frame 1 (`loop`) | source 5; source 3, transparent, source 0, source 7 |
 | SRV-22 | `GET /api/project?frame=5` on a project with an animated input | `animated` holds the frame-5 value; `keys` differ from frame 0 for the animated node |
 | WEB-25 | headless Chromium on a 4-frame animated project: timeline next, play | the frame number advances; the animated node's thumbnail URL carries the frame and its pixels change |
 | WEB-26 | headless Chromium: key button on `solid.color` at frame 0, change colour at frame 2 | the file holds an `anim` with keys at 0 and 2; the key button is filled at 2, hollow at 1 |
