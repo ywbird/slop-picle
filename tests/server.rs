@@ -343,7 +343,7 @@ fn srv_17_mcp_remote_host() {
     let sid = sid.as_deref();
     mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
     let call = |id: u64, method: &str, params: Json| mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })).2;
-    assert_eq!(call(2, "tools/list", json!({}))["result"]["tools"].as_array().unwrap().len(), 6);
+    assert_eq!(call(2, "tools/list", json!({}))["result"]["tools"].as_array().unwrap().len(), 7);
     call(3, "tools/call", json!({ "name": "create_project", "arguments": { "path": "r.slopc.json", "width": 4, "height": 4 } }));
     let edit = call(4, "tools/call", json!({ "name": "edit_project", "arguments": { "path": "r.slopc.json", "ops": solid_output() } }));
     assert_ne!(edit["result"]["isError"], json!(true), "{edit}");
@@ -445,4 +445,25 @@ fn srv_22_project_at_frame() {
     assert_eq!(st, 200);
     assert_eq!(f5["animated"]["bg"]["color"], "#8e8e8e");
     assert_ne!(f0["keys"]["bg"], f5["keys"]["bg"]);
+}
+
+#[test]
+fn srv_23_export_and_file() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    s.post("/api/projects", &json!({ "path": "a.slopc.json", "width": 4, "height": 4 }));
+    s.post("/api/ops?path=a.slopc.json", &json!([{ "op": "set_settings", "frames": 2 }]));
+    s.post("/api/ops?path=a.slopc.json", &solid_output());
+    let (st, v) = s.post("/api/export?path=a.slopc.json", &json!({ "out": "exports/f_%f.png" }));
+    assert_eq!(st, 200, "{v}");
+    assert_eq!(v["files"], json!(["exports/f_1.png", "exports/f_2.png"]));
+    let r = s.agent.get(format!("{}/api/file?path=exports/f_2.png", s.base)).header("Authorization", auth()).call().unwrap();
+    assert_eq!(r.status(), 200);
+    assert_eq!(r.headers().get("content-type").unwrap(), "image/png");
+    assert!(r.headers().get("content-disposition").unwrap().to_str().unwrap().starts_with("attachment"));
+    let (_, body) = s.get("/api/file?path=exports/f_2.png");
+    assert_eq!(body, std::fs::read(d.path().join("exports/f_2.png")).unwrap());
+    let (st, b) = s.get("/api/file?path=a.slopc.json");
+    let v: Json = serde_json::from_slice(&b).unwrap();
+    assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("bad_path")));
 }

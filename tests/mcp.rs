@@ -113,7 +113,7 @@ fn mcp_01_tools_list() {
     let tools = r["result"]["tools"].as_array().unwrap();
     let mut names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     names.sort();
-    assert_eq!(names, vec!["create_project", "edit_project", "list_node_types", "list_projects", "read_project", "render"]);
+    assert_eq!(names, vec!["create_project", "edit_project", "export", "list_node_types", "list_projects", "read_project", "render"]);
     assert!(tools.iter().all(|t| t["inputSchema"].is_object()));
 }
 
@@ -288,4 +288,24 @@ fn mcp_13_round_trip() {
     assert!(!img.unwrap().is_empty());
     let (_, v, _) = c.call("list_projects", json!({}));
     assert_eq!(v["projects"], json!(["art/s.slopc.json"]));
+}
+
+#[test]
+fn mcp_14_export() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = Client::start(d.path());
+    c.call("create_project", json!({ "path": "a.slopc.json", "width": 4, "height": 4 }));
+    c.call("edit_project", json!({ "path": "a.slopc.json", "ops": [
+        { "op": "set_settings", "frames": 3 },
+        { "op": "add_node", "id": "s", "type": "solid", "inputs": { "color": { "anim": [{ "time": 0, "value": "#000000" }, { "time": 2, "value": "#ffffff" }] } } },
+        { "op": "add_node", "id": "out", "type": "output", "inputs": { "surface_in": { "ref": "s" } } }
+    ] }));
+    let (err, v, _) = c.call("export", json!({ "path": "a.slopc.json", "out": "exports/a.gif" }));
+    assert!(!err, "{v}");
+    assert_eq!(v["files"], json!(["exports/a.gif"]));
+    assert_eq!(v["frames"], json!([0, 1, 2]));
+    assert!(d.path().join("exports/a.gif").is_file());
+    let (err, v, _) = c.call("export", json!({ "path": "a.slopc.json", "out": "../a.gif" }));
+    assert!(err);
+    assert_eq!(v["errors"][0]["code"], "path_outside_root");
 }
