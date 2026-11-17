@@ -288,3 +288,98 @@ fn srv_15_generated_token() {
     let t = s.url.rsplit("token=").next().unwrap();
     assert!(t.len() == 32 && t.chars().all(|c| c.is_ascii_hexdigit()), "{t}");
 }
+
+/// One JSON-RPC call to `/mcp`; returns (status, session id, parsed result message).
+fn mcp_call(s: &Server, host: Option<&str>, session: Option<&str>, auth_on: bool, body: Json) -> (u16, Option<String>, Json) {
+    let mut req = s
+        .agent
+        .post(format!("{}/mcp", s.base))
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json");
+    if auth_on {
+        req = req.header("Authorization", auth());
+    }
+    if let Some(h) = host {
+        req = req.header("Host", h);
+    }
+    if let Some(id) = session {
+        req = req.header("Mcp-Session-Id", id);
+    }
+    let mut r = req.send(body.to_string().as_bytes()).unwrap();
+    let status = r.status().as_u16();
+    let sid = r.headers().get("mcp-session-id").map(|v| v.to_str().unwrap().to_string());
+    let text = r.body_mut().with_config().limit(64 << 20).read_to_string().unwrap_or_default();
+    let msg = text
+        .lines()
+        .filter_map(|l| l.strip_prefix("data:").map(str::trim).or(Some(l)))
+        .filter_map(|l| serde_json::from_str::<Json>(l).ok())
+        .find(|v| v.get("id").is_some())
+        .unwrap_or(Json::Null);
+    (status, sid, msg)
+}
+
+fn init_body() -> Json {
+    json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "t", "version": "0" } } })
+}
+
+#[test]
+fn srv_16_mcp_needs_token() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    assert_eq!(mcp_call(&s, None, None, false, init_body()).0, 401);
+    let (st, _, msg) = mcp_call(&s, None, None, true, init_body());
+    assert_eq!(st, 200);
+    assert!(msg["result"]["serverInfo"].is_object(), "{msg}");
+}
+
+#[test]
+fn srv_17_mcp_remote_host() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    let host = Some("192.168.1.5:7420");
+    let (st, sid, msg) = mcp_call(&s, host, None, true, init_body());
+    assert_eq!(st, 200, "{msg}");
+    let sid = sid.as_deref();
+    mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+    let call = |id: u64, method: &str, params: Json| mcp_call(&s, host, sid, true, json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })).2;
+    assert_eq!(call(2, "tools/list", json!({}))["result"]["tools"].as_array().unwrap().len(), 6);
+    call(3, "tools/call", json!({ "name": "create_project", "arguments": { "path": "r.slopc.json", "width": 4, "height": 4 } }));
+    let edit = call(4, "tools/call", json!({ "name": "edit_project", "arguments": { "path": "r.slopc.json", "ops": solid_output() } }));
+    assert_ne!(edit["result"]["isError"], json!(true), "{edit}");
+    let r = call(5, "tools/call", json!({ "name": "render", "arguments": { "path": "r.slopc.json" } }));
+    assert!(r["result"]["content"].as_array().unwrap().iter().any(|c| c["type"] == "image"), "{r}");
+}
+
+fn upload(s: &Server, path: &str, body: &[u8]) -> (u16, Json) {
+    let mut r = s.agent.post(format!("{}/api/upload?path={path}", s.base)).header("Authorization", auth()).send(body).unwrap();
+    (r.status().as_u16(), serde_json::from_str(&r.body_mut().read_to_string().unwrap()).unwrap_or(Json::Null))
+}
+
+#[test]
+fn srv_18_upload_png() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    let img = surface(2, 2, |x, y| [x as u8 * 200, y as u8 * 200, 7, 255]);
+    let (st, v) = upload(&s, "assets/a.png", &img.to_png());
+    assert_eq!(st, 201, "{v}");
+    assert!(d.path().join("assets/a.png").is_file());
+    s.post("/api/projects", &json!({ "path": "u.slopc.json", "width": 2, "height": 2 }));
+    s.post("/api/ops?path=u.slopc.json", &json!([{ "op": "add_node", "id": "img", "type": "image", "inputs": { "path": "assets/a.png" } }]));
+    let (st, png) = s.get("/api/render?path=u.slopc.json&node=img");
+    assert_eq!(st, 200);
+    assert_eq!(Surface::from_png(&png).unwrap(), img);
+}
+
+#[test]
+fn srv_19_upload_rejects() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    let png = surface(1, 1, |_, _| [0, 0, 0, 255]).to_png();
+    let (st, v) = upload(&s, "x.png", b"not a png");
+    assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("bad_request")));
+    let (st, v) = upload(&s, "a.txt", &png);
+    assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("bad_path")));
+    let (st, v) = upload(&s, "../a.png", &png);
+    assert_eq!((st, v["errors"][0]["code"].as_str()), (400, Some("path_outside_root")));
+}

@@ -82,3 +82,25 @@ test("WEB-10 connect and edit a widget", async () => {
   for (let i = 0; i < 50 && read().nodes.n.inputs?.seed !== 5; i++) await Bun.sleep(100);
   expect(read().nodes.n.inputs.seed).toBe(5);
 }, 30000);
+
+test("WEB-11 upload a PNG into an image node", async () => {
+  const add = Bun.spawn([bin, "edit", file, "-"], { stdin: "pipe" });
+  add.stdin.write(JSON.stringify([{ op: "add_node", id: "pic", type: "image", inputs: { path: "none.png" }, pos: [640, 0] }]));
+  add.stdin.end();
+  expect(await add.exited).toBe(0);
+  await page.waitForSelector('.svelte-flow__node[data-id="pic"]');
+  await page.locator('.svelte-flow__node[data-id="pic"] .head').click();
+  // A 3x2 PNG made with the slopc CLI.
+  const png = join(dir, "src.png");
+  const mk = join(dir, "mk.slopc.json");
+  writeFileSync(mk, JSON.stringify({ slopc: 1, settings: { width: 3, height: 2 }, nodes: { s: { type: "solid" } } }));
+  expect(await Bun.spawn([bin, "render", mk, "-o", png, "--node", "s"]).exited).toBe(0);
+  await page.locator('aside input[type="file"]').setInputFiles(png);
+  for (let i = 0; i < 50 && read().nodes.pic.inputs.path !== "assets/src.png"; i++) await Bun.sleep(100);
+  expect(read().nodes.pic.inputs.path).toBe("assets/src.png");
+  expect(readFileSync(join(dir, "assets", "src.png")).length).toBeGreaterThan(0);
+  await page.waitForFunction(() => {
+    const img = document.querySelector<HTMLImageElement>('.svelte-flow__node[data-id="pic"] img');
+    return !!img && img.complete && img.naturalWidth === 3;
+  });
+}, 30000);
