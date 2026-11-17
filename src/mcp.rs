@@ -20,7 +20,8 @@ Workflow: list_node_types (then list_node_types {type} for inputs) -> create_pro
 Ops: add_node {type, id?, inputs?}, set_input {id, input, value}, remove_node, rename_node, move_node, unset_input, set_label, set_settings.
 Connect nodes with an input value {\"ref\": \"node\"} or {\"ref\": \"node.output\"}. An `output` node marks what render shows.
 `missing_input` warnings are fine while building; other errors reject the whole batch.
-Animation: settings.frames/fps; any non-surface input can hold {\"anim\": [{\"time\": frame, \"value\": v, \"ease_in_type\"?: \"linear|bezier|cut\"}], \"on_end\"?: \"hold|loop|ping|wrap\"}, or edit keys with set_key {id, input, time, value} / remove_key {id, input, time}. Animation nodes (wiggler, fn_ease, revert, anim_speed, delay, anim_loop, ...) are in list_node_types. render takes frame.";
+Animation: settings.frames/fps; any non-surface input can hold {\"anim\": [{\"time\": frame, \"value\": v, \"ease_in_type\"?: \"linear|bezier|cut\"}], \"on_end\"?: \"hold|loop|ping|wrap\"}, or edit keys with set_key {id, input, time, value} / remove_key {id, input, time}. Animation nodes (wiggler, fn_ease, revert, anim_speed, delay, anim_loop, ...) are in list_node_types. render takes frame.
+Export: export {path, out} writes files inside the root: out \"exports/walk.gif\" (or .apng) is the whole animation, \"exports/walk_%3f.png\" one PNG per frame, \"exports/walk.png\" one frame; options range [first, last] from 1, step, scale, fps. render_sprite_sheet lays the frames out in one image.";
 
 #[derive(Clone)]
 pub struct Slopc {
@@ -70,6 +71,16 @@ pub struct RenderArgs {
     pub frame: Option<i64>,
     /// Integer upscale 1-32; default fits the longer side in 512 px.
     pub scale: Option<u32>,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct ExportArgs {
+    /// Project path relative to the root.
+    pub path: String,
+    /// Output file relative to the root: .png (%f or %3f for one file per frame), .gif or .apng. Parent directories are created.
+    pub out: String,
+    #[serde(flatten)]
+    pub options: crate::export::Options,
 }
 
 fn ok(v: Json) -> CallToolResult {
@@ -234,6 +245,21 @@ impl Slopc {
         });
         match job.await {
             Ok(Ok(r) | Err(r)) => r,
+            Err(e) => fail(vec![Error::new("eval_error", e.to_string())]),
+        }
+    }
+
+    #[tool(description = "Export frames to files inside the root: a GIF or APNG of the animation, one PNG per frame (%f in out), or one PNG.")]
+    async fn export(&self, Parameters(a): Parameters<ExportArgs>) -> CallToolResult {
+        let path = match sandbox::project(&self.root, &a.path) {
+            Ok(p) => p,
+            Err(e) => return fail(vec![e]),
+        };
+        let (root, ev) = (self.root.clone(), self.evaluator.clone());
+        let job = tokio::task::spawn_blocking(move || crate::export::export_in_root(&root, &path, &a.out, &a.options, &mut ev.lock().unwrap()));
+        match job.await {
+            Ok(Ok(x)) => ok(json!({ "files": x.files, "frames": x.frames })),
+            Ok(Err(e)) => fail(e),
             Err(e) => fail(vec![Error::new("eval_error", e.to_string())]),
         }
     }

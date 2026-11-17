@@ -273,6 +273,37 @@ async fn upload_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: 
     Ok((StatusCode::CREATED, Json(json!({ "ok": true, "path": q.path }))).into_response())
 }
 
+#[derive(Deserialize)]
+struct ExportBody {
+    out: String,
+    #[serde(flatten)]
+    options: crate::export::Options,
+}
+
+async fn export_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: Bytes) -> Result<Json<JsonValue>, ApiError> {
+    let path = existing(&st, &q.path)?;
+    let b: ExportBody = parse_body(&body)?;
+    let (root, ev) = (st.root.clone(), st.evaluator.clone());
+    let job = move || crate::export::export_in_root(&root, &path, &b.out, &b.options, &mut ev.lock().unwrap_or_else(|e| e.into_inner()));
+    let x = tokio::task::spawn_blocking(job).await.map_err(io_err)?.map_err(ApiError)?;
+    Ok(Json(json!({ "ok": true, "files": x.files, "frames": x.frames })))
+}
+
+async fn file_h(State(st): State<AppState>, Query(q): Query<PathQuery>) -> Result<Response, ApiError> {
+    let lower = q.path.to_ascii_lowercase();
+    let types = [(".png", "image/png"), (".gif", "image/gif"), (".apng", "image/apng")];
+    let Some((_, mime)) = types.into_iter().find(|(ext, _)| lower.ends_with(ext)) else {
+        return Err(Error::new("bad_path", format!("'{}' is not a .png, .gif or .apng file", q.path)).into());
+    };
+    let path = sandbox::resolve(&st.root, &q.path)?;
+    let bytes = tokio::fs::read(&path).await.map_err(|_| Error::new("not_found", format!("no file '{}'", q.path)))?;
+    // RFC 6266 `filename*`: percent-encode all but unreserved characters, so any file name is a safe header.
+    let name: String = path.file_name().unwrap_or_default().to_string_lossy().bytes()
+        .map(|b| if b.is_ascii_alphanumeric() || b"-._~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") })
+        .collect();
+    Ok(([(header::CONTENT_TYPE, mime.to_string()), (header::CONTENT_DISPOSITION, format!("attachment; filename*=UTF-8''{name}"))], bytes).into_response())
+}
+
 fn keys_event(path: &Path, frame: i64) -> Event {
     let k = project::load(path).ok().and_then(|l| l.project).map(|p| keys(path, &p, frame)).unwrap_or_default();
     Event::default().event("changed").data(json!({ "keys": k }).to_string())
@@ -332,6 +363,8 @@ pub fn router(st: AppState) -> Router {
         .route("/api/render", get(render_h))
         .route("/api/events", get(events_h))
         .route("/api/upload", post(upload_h))
+        .route("/api/export", post(export_h))
+        .route("/api/file", get(file_h))
         .nest_service("/mcp", mcp_service)
         .layer(middleware::from_fn_with_state(st.clone(), require_token));
     Router::new()
