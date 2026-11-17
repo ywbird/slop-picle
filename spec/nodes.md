@@ -36,6 +36,61 @@ All arithmetic wraps modulo 2³². `hash2(x, y, seed) = hash(x ^ hash(y ^ hash(s
 
 Placement uses fractions of a surface size: `position [0.5, 0.5]` is the centre.
 
+## Shared modifiers
+
+Upstream: `scripts/mask_function` (`mask_apply_input`, `channel_apply`, `mask_apply_empty`), `shaders/sh_mask`,
+`shaders/sh_mask_empty`, and the shaders' `uv` include. These inputs come after each node's own inputs.
+
+### Filter modifiers
+
+On `flip`, `blur`, `dither`, `threshold`, `displace`, `invert`, `color_replace`, `colorize`, `greyscale` (all five
+inputs) and `offset`, `outline`, `shadow`, `posterize` (no `channel`), as upstream.
+
+| Input | Type | Default | Range |
+|---|---|---|---|
+| `mask` | surface | none (optional) | |
+| `mix` | number | 1 | 0–1 |
+| `invert_mask` | bool | false | |
+| `mask_feather` | number | 0 | 0–32 |
+| `channel` | int | 15 | 0–15; bit mask: 1 red, 2 green, 4 blue, 8 alpha |
+
+After the node computes `E` from its first surface input `O`:
+
+1. Without a mask and with `mix = 1`, `E` stays. Otherwise the mask strength is `m = (r + g + b)/3 · a` of the mask
+   stretched to the output size (nearest-neighbour), blurred first when `mask_feather > 0` with the `blur` kernel of
+   that size, outside the mask counting as 0 (deviation as in `blend`); `invert_mask` gives `1 − m`; without a mask
+   `m = 1`. With `t = clamp(m · mix, 0, 1)` and `O` stretched to the output size: `out = mix(O, E, t)`, then where
+   `O.a = 0` the colour is `E`'s, and where `E.a = 0` it is `O`'s (both in that order, as `sh_mask`).
+2. Unless `channel = 15`, every channel whose bit is clear takes `O`'s value (`O` from the top-left at its own size;
+   transparent outside it).
+
+### Generator modifiers
+
+On `noise`, `gradient`, `shape`, `cellular`, `checker`, `stripe`, as upstream.
+
+| Input | Type | Default | Range |
+|---|---|---|---|
+| `uv_map` | surface | none (optional) | |
+| `uv_mix` | number | 1 | 0–1 |
+| `mask` | surface | none (optional) | |
+
+With a `uv_map`, output pixel `p` is drawn as the pixel at `floor(mix(uv, (r, 1 − g), uv_mix) · size)`, where
+`uv = (p + 0.5)/size` and `(r, g, b, a)` is the map pixel stretched to the output size, and its alpha is multiplied by
+`a` (upstream `getUVA`). Deviation: upstream samples at the remapped position itself; slopc snaps it to a pixel. With
+a `mask`, the output alpha is multiplied by `(r + g + b)/3 · a` of the stretched mask (`mask_apply_empty`).
+
+| ID | Given | Expected |
+|---|---|---|
+| N-MOD-01 | `invert` of a 2×2 (10,20,30,255) with a mask white in column 0, black in column 1 | column 0 (245,235,225,255), column 1 unchanged |
+| N-MOD-02 | the same without a mask, `mix 0.5` | (128,128,128,255) ± 1 |
+| N-MOD-03 | N-MOD-01 with `invert_mask` | column 0 unchanged, column 1 inverted |
+| N-MOD-04 | `invert` of a black 6×7, mask white in x < 3, black after, `mask_feather 4`; row 3 | grey 160, 193, 160, 89, 31, 6 ± 2 |
+| N-MOD-05 | `invert` of (10,20,30,255), `channel 1` | (245,20,30,255) |
+| N-MOD-06 | `outline` width 1, red, of one opaque pixel in a transparent 3×3, `mix 0.5` | the pixel right of it (255,0,0,128) ± 1 (colour from `E` where `O` is transparent) |
+| N-MOD-07 | 2×2 `checker` with a mask white in column 0, black in column 1 | column 1 alpha 0, column 0 unchanged |
+| N-MOD-08 | 4×1 linear `gradient` black→white with a `uv_map` whose red is (3.5 − x)/4 and alpha 128 | the gradient mirrored, alpha 128 ± 1 |
+| N-MOD-09 | the catalog | the inputs above on exactly the nodes listed |
+
 ## solid — generate
 
 Upstream: `scripts/node_solid`. Left out: `Foreground`, `Mask`, `Use mask dimension`, `Empty`, `Multiply Alpha`.
@@ -336,7 +391,8 @@ Tests use a tolerance of 1 per channel wherever float math is involved.
 
 Global deviations for M3, besides those above:
 
-- Masks, UV maps, `Mix`, channel toggles and per-input map surfaces (`setMappable`) are left out everywhere.
+- Per-input map surfaces (`setMappable`) are left out everywhere (masks, mix, channels and UV maps: see
+  [shared modifiers](#shared-modifiers)).
 - Upstream `DEF_PALETTE` was not located; palette defaults are `["#000000", "#ffffff"]`.
 - Colour distances are RGB Euclidean everywhere (upstream `dither` uses LAB).
 
