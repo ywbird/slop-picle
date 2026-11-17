@@ -1,0 +1,158 @@
+# slopc — plan
+
+Node-based procedural pixel-art compositor, built on the ideas of
+[Pixel Composer](https://github.com/Ttanasart-pt/Pixel-Composer) (MIT, GameMaker, about 700 nodes).
+AI models work through MCP and a CLI. People work through a server with a web UI.
+Both edit the same project file.
+
+## Decisions
+
+Confirmed with the user on 2026-11-17.
+
+| Topic | Decision |
+|---|---|
+| Name | binary `slopc`, project files `*.slopc.json` |
+| Core stack | Rust: engine, CLI, MCP and server |
+| Rendering | GPU shaders with wgpu + WGSL, headless, on the server only |
+| Web UI | Svelte 5 + Svelte Flow (`@xyflow/svelte`); it shows images rendered by the server |
+| State | the project file on disk is the source of truth; the server watches it and pushes changes to the web UI |
+| MCP transport | stdio, and Streamable HTTP at `/mcp` on the server |
+| Deployment | reachable over LAN or remotely, protected by a token |
+| MVP scope | 2D still images, about 30 nodes, PNG output. The evaluator takes a frame number; keyframes and a timeline come later |
+| Language | English for docs, code, comments and commits |
+
+## Assumptions
+
+Chosen without asking. Say so if any is wrong.
+
+- Upstream is a source of ideas only: no `.pxc` import, no matching node names. Shader math ported from upstream keeps its MIT notice.
+- One Rust crate, one binary with subcommands. The web UI is a static Vite build embedded in the binary.
+- Surfaces are RGBA8 with straight alpha, sampled nearest-neighbour, no colour management.
+- The server speaks plain HTTP. TLS is left to a reverse proxy or a tunnel.
+- A token is always required, also on localhost. One is generated when none is given.
+- MCP and the server only touch files inside a root directory (default: the current directory).
+- Web tooling runs on bun, which is already installed.
+
+## Architecture
+
+```
+CLI        MCP (stdio)     MCP (HTTP /mcp)    web UI
+ │              │                 │             │ /api, SSE
+ │              │                 └─slopc serve─┘
+ └──────────────┴───────┬────────────────┘
+                      core    project · ops · catalog · validate · eval · gpu
+                        │     locked, atomic writes
+                  *.slopc.json ── file watch ──► slopc serve ──► web UI
+```
+
+- `project`: the file model. Saving takes a file lock and renames atomically.
+- `ops`: the one edit vocabulary (`add_node`, `set_input`, ...). The CLI, MCP and the HTTP API all call it. A batch applies fully or not at all.
+- `catalog`: every node type with its inputs (type, default, range), outputs and description. The web UI builds its widgets from it, and MCP and the CLI print it, so nothing about a node is written twice.
+- `validate`: runs on every load. Errors name the node and the input, so a model can fix its own mistakes.
+- `eval`: evaluates the graph for one frame and caches node outputs by content hash.
+- `gpu`: headless wgpu. A filter node is one WGSL fragment shader plus its catalog entry.
+
+### Project file
+
+A sketch. The format is fixed in M1.
+
+```json
+{
+  "slopc": 1,
+  "settings": { "width": 32, "height": 32, "frames": 1, "fps": 12 },
+  "nodes": {
+    "noise": { "type": "noise", "inputs": { "scale": 4, "seed": 7 } },
+    "pal":   { "type": "palette", "inputs": { "colors": ["#1a1c2c", "#5d275d", "#b13e53"] } },
+    "quant": { "type": "quantize", "inputs": { "image": { "ref": "noise" }, "palette": { "ref": "pal" } } },
+    "out":   { "type": "output", "inputs": { "image": { "ref": "quant" } }, "pos": [480, 0] }
+  }
+}
+```
+
+Every input holds either a literal value or a `ref` to another node's output (`"node"` or `"node.output"`).
+`pos` is optional: nodes without one are laid out automatically.
+
+### Nodes for the MVP
+
+A proposal of 33 nodes.
+
+| Category | Nodes |
+|---|---|
+| IO | image, output |
+| Generate | solid, gradient, shape, noise, cellular, checker, stripe |
+| Transform | transform, scale, crop, flip, offset |
+| Filter | blur, outline, shadow, pixelate, dither, threshold, displace |
+| Colour | adjust, invert, quantize, replace_color, gradient_map |
+| Compose | blend, mask |
+| Value | number, color, palette, math, frame |
+
+## Milestones
+
+M3 and M4 do not depend on each other.
+
+### M1 — Headless core and CLI
+
+- [ ] Scaffold: Cargo crate `slopc`, `.gitignore`
+- [ ] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
+- [ ] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
+- [ ] Validation: unknown type or input, type mismatch, cycle, dangling ref, out-of-range value, caps on surface size and node count
+- [ ] GPU: headless wgpu device, shader-node helper (uniforms generated from the catalog entry), read back to PNG
+- [ ] Evaluator: topological order, takes a frame number, caches node outputs by content hash
+- [ ] First nodes end to end: solid, noise, transform, blend, image, output
+- [ ] CLI: `new`, `nodes`, `show`, `validate`, `render`
+- [ ] Golden-image tests with a per-channel tolerance
+
+Done when `slopc render examples/hello.slopc.json -o hello.png` matches its golden image.
+
+### M2 — Editing and MCP over stdio (AI can work)
+
+- [ ] Ops: `add_node`, `remove_node`, `rename_node`, `move_node`, `set_input`, `unset_input`, `set_settings`
+- [ ] CLI: `slopc edit <file> <ops.json | ->`
+- [ ] `slopc mcp` with six tools: `list_projects`, `create_project`, `read_project`, `edit_project`, `list_node_types`, `render`
+- [ ] `render` returns the PNG scaled up nearest-neighbour, plus stats (size, opaque bounding box, colour count)
+- [ ] Root sandbox: every path resolves inside the root, tested against `..` and symlink escapes
+- [ ] Round-trip test: spawn `slopc mcp`, then create, edit and render
+
+Done when an agent builds a sprite from an empty project using MCP tools only.
+
+### M3 — Node library
+
+- [ ] The remaining 27 nodes, each with a catalog description and a golden test
+
+Done when all 33 nodes pass.
+
+### M4 — Server and web UI (people can work)
+
+- [ ] `slopc serve --root --host --port --token`: catalog, project list / create / read, ops, render PNG
+- [ ] Token auth: bearer header for API clients, cookie for the browser. A generated token is printed as a ready-to-open URL
+- [ ] Checks and limits: `Origin` / `Host` validation, request size cap
+- [ ] File watch pushed over SSE, with per-node output hashes so only changed thumbnails reload
+- [ ] Web: graph (Svelte Flow, one generic node component with a thumbnail), add-node search, inspector with a widget per input type, preview (pixelated zoom, frame number), validation errors shown on nodes
+- [ ] Web build embedded in the binary
+
+Done when a person edits a project in the browser, and an edit made through MCP shows up in the open page without a reload.
+
+### M5 — Remote
+
+- [ ] `/mcp` Streamable HTTP in `slopc serve`: same tools, same token
+- [ ] Upload PNG assets from the web UI
+
+Done when an agent on another machine connects to `/mcp` with the token and renders, and requests without the token are rejected.
+
+## Later
+
+Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and sprite-sheet export, groups, loops and feedback, array inputs (batch), custom WGSL node, particles, text and canvas (paint) nodes, simulations, 3D.
+
+## Risks
+
+- GPU output can differ slightly between drivers. Golden tests use a tolerance, and shaders fetch integer texels where they can.
+- This machine has an Intel UHD 620 with Vulkan but no software rasteriser. A host without a GPU needs lavapipe.
+- A token over plain HTTP can be sniffed on an untrusted network. Use a TLS proxy or a tunnel there.
+- A person and an AI can write the same file. Edits are small ops under a file lock, but there is no merge: the last op on an input wins.
+- `wgpu` (30.x) and `rmcp` (3.x) change fast. Versions are pinned, and their APIs are checked in M1 and M2.
+
+## Feedback
+
+User feedback as a checklist. Points that need a decision are indented under their item.
+
+_None yet._
