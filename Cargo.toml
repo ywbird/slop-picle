@@ -9,8 +9,11 @@ clap = { version = "4.6.8", features = ["derive"] }
 indexmap = "2.14.2"
 png = "0.18.1"
 pollster = "1.0.1"
+rmcp = { version = "3.10.0", features = ["server", "macros", "transport-io", "schemars"] }
+schemars = "1.2.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "io-std", "sync", "fs", "time"] }
 wgpu = { version = "30", default-features = false, features = ["wgsl", "vulkan", "metal", "dx12", "std"] }
 
 [dev-dependencies]

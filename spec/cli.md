@@ -1,6 +1,7 @@
 # CLI
 
-One binary, `slopc`, with subcommands. M1 commands are below; `edit` and `mcp` come in M2, `serve` in M4.
+One binary, `slopc`, with subcommands. M1: `new`, `nodes`, `show`, `validate`, `render`, `schema`. M2: `edit`, `mcp`.
+M4: `serve` (see [server.md](server.md)).
 
 ## Conventions
 
@@ -50,6 +51,16 @@ Text: `ok` or one line per error: `<node>.<input>: <code>: <message>`. Exit 0 if
 - The target must be a `surface` (else exit 1, `type_mismatch`).
 - Writes an 8-bit RGBA PNG atomically. `-o -` writes the PNG to stdout.
 - `--json` prints `{ "ok": true, "path": ..., "width": ..., "height": ... }` (size after scaling).
+
+### `slopc edit <file> <ops.json | -> [--json]`
+
+Applies a batch of ops ([ops.md](ops.md)) under the project lock. The input is a JSON array of ops, or a single op
+object; `-` reads stdin. Exit 0 if applied, 1 if rejected (file unchanged), 3 on I/O errors. `--json` prints the batch
+result; text mode prints `ok` (plus warnings) or the errors.
+
+### `slopc mcp [--root DIR]`
+
+Runs the MCP server on stdio ([mcp.md](mcp.md)).
 
 ### `slopc schema`
 

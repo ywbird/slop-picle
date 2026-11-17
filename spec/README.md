@@ -9,8 +9,10 @@ One file per area. A spec is written before its code, and changed before the cod
 | [evaluation.md](evaluation.md) | graph evaluation, cache, GPU conventions | M1 |
 | [nodes.md](nodes.md) | node behavior (M1: solid, noise, transform, blend, image, output) | M1, M3 |
 | [cli.md](cli.md) | `slopc` commands, output, exit codes | M1, M2 |
+| [ops.md](ops.md) | edit operations and batches | M2 |
+| [mcp.md](mcp.md) | MCP tools, root sandbox | M2, M5 |
 
-Later: `ops.md`, `mcp.md` (M2), `server.md`, `web.md` (M4).
+Later: `server.md`, `web.md` (M4).
 
 ## Keywords
 
@@ -30,4 +32,4 @@ Every section ends with a table of test cases:
 - `SLOPC_UPDATE_GOLDEN=1 cargo test` rewrites golden images. A rewritten golden image is reviewed by eye before commit.
 
 Area prefixes: `PF` project file, `TY` types and catalog, `EV` evaluation, `GPU` GPU conventions,
-`N-<NODE>` nodes, `CLI` command line.
+`N-<NODE>` nodes, `CLI` command line, `OP` edit operations, `MCP` MCP server.
