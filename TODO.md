@@ -146,7 +146,7 @@ Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet exp
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-- [ ] 예시 프로젝트 하나 만들어줘: 3d 김치
+- [x] 예시 프로젝트 하나 만들어줘: 3d 김치
   - To confirm (chosen without asking, upstream has no answer): `examples/kimchi.slopc.json`, 64×64, 24 frames at 12 fps; a white porcelain bowl of cut napa cabbage kimchi (mak-kimchi) in red kimchi juice, turning on a turntable; the heap is sprite-stacked (layers of one rotating top-down texture, squashed for a 3/4 view), lit from the upper left with glossy highlights
 
 - [x] 왜 한 루프가 끝나고 처음으로 돌아왔는데 루프가 시작할때랑 다르게 생긴거야? webui만 그런거야? 그렇다면 고쳐봐 (commit b65e76e, commit 9bc6da0)
