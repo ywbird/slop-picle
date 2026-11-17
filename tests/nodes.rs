@@ -246,9 +246,14 @@ fn n_blend_03_transparent_foreground() {
 
 #[test]
 fn n_blend_04_both_transparent() {
-    for mode in ["normal", "replace", "multiply", "add", "screen"] {
+    for &mode in slopc::nodes::BLEND_MODES {
         let s = blend(&flat(2, 2, CLEAR), Some(&flat(2, 2, CLEAR)), json!({ "blend_mode": mode }));
-        assert_all(&s, CLEAR, 0);
+        let want = match mode {
+            "difference" => [0, 0, 0, 255],
+            "equal" => [255, 255, 255, 255],
+            _ => CLEAR,
+        };
+        assert_eq!(s.pixel(0, 0), want, "{mode}");
     }
 }
 
@@ -438,4 +443,56 @@ fn n_output_01_passthrough() {
         "o": { "type": "output", "inputs": { "surface_in": { "ref": "s" } } }
     });
     assert_eq!(eval(3, 3, nodes.clone(), "o").unwrap(), eval(3, 3, nodes, "s").unwrap());
+}
+
+#[test]
+fn n_blend_16_modes() {
+    let bg = flat(2, 2, [200, 100, 50, 255]);
+    let (dark, light) = ([60, 90, 40, 255], [230, 200, 120, 255]);
+    let cases: &[(&str, [u8; 4], f64, [u8; 4])] = &[
+        ("color_burn", light, 1.0, [194, 57, 0, 255]),
+        ("linear_burn", light, 1.0, [175, 45, 0, 255]),
+        ("minimum", light, 0.5, [115, 100, 50, 128]),
+        ("color_dodge", dark, 1.0, [255, 148, 50, 255]),
+        ("maximum", light, 0.5, [200, 100, 60, 255]),
+        ("overlay", dark, 1.0, [94, 71, 16, 255]),
+        ("overlay", light, 1.0, [244, 188, 38, 255]),
+        ("soft_light", dark, 1.0, [147, 85, 33, 255]),
+        ("soft_light", light, 1.0, [222, 144, 44, 255]),
+        ("hard_light", light, 1.0, [244, 188, 38, 255]),
+        ("vivid_light", dark, 1.0, [255, 255, 73, 0]),
+        ("vivid_light", light, 1.0, [211, 167, 255, 255]),
+        ("linear_light", dark, 1.0, [65, 25, 0, 255]),
+        ("pin_light", dark, 1.0, [120, 100, 50, 255]),
+        ("pin_light", light, 1.0, [205, 145, 50, 255]),
+        ("difference", light, 0.5, [115, 100, 60, 255]),
+        ("exclusion", light, 1.0, [69, 143, 123, 0]),
+        ("subtract", dark, 1.0, [140, 10, 10, 0]),
+        ("divide", light, 1.0, [222, 128, 106, 255]),
+        ("hue", dark, 1.0, [110, 200, 50, 255]),
+        ("saturation", light, 1.0, [200, 136, 104, 255]),
+        ("luminosity", dark, 1.0, [104, 52, 26, 255]),
+    ];
+    let mut bad = vec![];
+    for &(mode, fg, o, want) in cases {
+        let got = blend(&bg, Some(&flat(2, 2, fg)), json!({ "blend_mode": mode, "opacity": o })).pixel(0, 0);
+        if got.iter().zip(want).any(|(a, b)| a.abs_diff(b) > 2) {
+            bad.push(format!("{mode} {fg:?} o={o}: got {got:?}, want {want:?}"));
+        }
+    }
+    assert!(bad.is_empty(), "{}", bad.join("\n"));
+}
+
+#[test]
+fn n_blend_17_divide_by_zero() {
+    let s = blend(&flat(2, 2, [200, 100, 50, 255]), Some(&flat(2, 2, [0, 0, 0, 255])), json!({ "blend_mode": "divide" }));
+    assert_all(&s, [255, 255, 255, 255], 0);
+}
+
+#[test]
+fn n_blend_18_equal() {
+    let c = flat(2, 2, [10, 20, 30, 255]);
+    assert_all(&blend(&c, Some(&c), json!({ "blend_mode": "equal" })), [255, 255, 255, 255], 0);
+    assert_all(&blend(&c, Some(&c), json!({ "blend_mode": "unequal" })), CLEAR, 0);
+    assert_all(&blend(&c, Some(&c), json!({ "blend_mode": "equal", "opacity": 0.5 })), [128, 128, 128, 128], 1);
 }
