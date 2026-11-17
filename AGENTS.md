@@ -8,6 +8,7 @@
    If working on an item raises an ambiguity, list the points to confirm as an indented list under that item.
 3. Commit to git after every change.
 4. Everything in the repository is written in English: docs, code, comments, commit messages.
+   Questions to the user are asked in Korean.
 5. Spec first. Before implementing an area, write or update its spec in `spec/` (one file per area).
    Code follows the spec. If code needs to differ, change the spec first.
 6. Tests first. Each spec section ends with numbered test cases (given → expected).

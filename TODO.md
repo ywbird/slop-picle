@@ -171,4 +171,5 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] `slopc new` creates a project with no nodes
   - [x] Limits: 4096 px per side, 2048² px per surface, 1000 nodes
 - [x] From now on, resolve ambiguities by following the original project (Pixel Composer) first
-  - To confirm: re-check the M1 spec and the unasked "Assumptions" against upstream now (node names, inputs, defaults, noise and blend math), or keep them and apply the rule only to new work
+  - [x] Re-check the M1 spec and the unasked "Assumptions" against upstream now; keep user-confirmed decisions
+- [x] Ask questions in Korean
