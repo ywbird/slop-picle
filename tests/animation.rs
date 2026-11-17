@@ -300,3 +300,110 @@ fn an_n8_remap_key_follows_source_frame() {
     let second = ev.eval(&p2, ".".as_ref(), "r", 0).unwrap().into_surface().unwrap();
     assert_eq!(second.pixel(0, 0)[0], 255);
 }
+
+// ---------- curve type, any type, anim_curve, delay_value, stagger ----------
+
+const THIRD: f64 = 1.0 / 3.0;
+
+fn lin() -> Json {
+    json!({ "points": [{ "x": 0, "y": 0, "out": [THIRD, THIRD] }, { "x": 1, "y": 1, "in": [-THIRD, -THIRD] }] })
+}
+
+/// `anim_curve` with `progress` = `x`.
+fn curve_at(curve: Json, x: f64) -> f64 {
+    num(at(&proj(1, json!({ "c": { "type": "anim_curve", "inputs": { "curve": curve, "progress": x } } })), "c", 0))
+}
+
+#[test]
+fn ty_20_curve_literals() {
+    let errs = |c: Json| input_errors(json!({ "c": { "type": "anim_curve", "inputs": { "curve": c } } }), "c", "curve");
+    assert!(errs(lin()).is_empty());
+    assert_eq!(errs(json!({ "points": [{ "x": 0, "y": 0 }] })), vec!["out_of_range"]);
+    let many: Vec<Json> = (0..17).map(|i| json!({ "x": i as f64 / 16.0, "y": 0 })).collect();
+    assert_eq!(errs(json!({ "points": many })), vec!["out_of_range"]);
+    let mut c = lin();
+    c["type"] = json!("spline");
+    assert_eq!(errs(c), vec!["invalid_enum"]);
+    let mut c = lin();
+    c["scale"] = json!(0);
+    assert_eq!(errs(c), vec!["out_of_range"]);
+    assert_eq!(errs(json!({ "points": [{ "x": 0, "y": 0 }, { "x": 1 }] })), vec!["type_mismatch"]);
+}
+
+#[test]
+fn ty_21_curve_evaluation() {
+    let close = |got: f64, want: f64| assert!((got - want).abs() < 0.0005, "{got} vs {want}");
+    close(curve_at(lin(), 0.25), 0.25);
+    close(curve_at(json!({ "points": [{ "x": 0, "y": 1, "out": [THIRD, -THIRD] }, { "x": 1, "y": 0, "in": [-THIRD, THIRD] }] }), 0.25), 0.75);
+    let ease = json!({ "points": [{ "x": 0, "y": 0, "out": [0.6, 0] }, { "x": 1, "y": 1, "in": [-0.2, -0.2] }] });
+    close(curve_at(ease.clone(), 0.25), 0.0517);
+    close(curve_at(ease, 0.5), 0.2338);
+    let step = json!({ "type": "step", "points": [{ "x": 0, "y": 0 }, { "x": 0.5, "y": 1 }, { "x": 1, "y": 0.5 }] });
+    for (x, want) in [(0.25, 0.0), (0.75, 1.0), (1.0, 1.0)] {
+        close(curve_at(step.clone(), x), want);
+    }
+    let mut c = lin();
+    c["range"] = json!([2, 4]);
+    close(curve_at(c, 0.5), 3.0);
+    let mut c = lin();
+    c["scale"] = json!(2);
+    close(curve_at(c, 0.5), 0.25);
+    close(curve_at(json!({ "points": [{ "x": 0.5, "y": 0.2 }, { "x": 1, "y": 0.8 }] }), 0.25), 0.8);
+}
+
+#[test]
+fn ty_22_any_type() {
+    let errs = |value: Json| {
+        let mut nodes = json!({
+            "d": { "type": "delay_value", "inputs": {} },
+            "s": { "type": "solid", "inputs": { "color": { "ref": "d" } } },
+            "col": { "type": "color", "inputs": { "color": "#ff0000" } },
+            "pic": { "type": "solid" }
+        });
+        if !value.is_null() {
+            nodes["d"]["inputs"]["value"] = value;
+        }
+        let text = json!({ "slopc": 1, "nodes": nodes }).to_string();
+        project::load_str(&text).errors.into_iter().map(|e| e.code).collect::<Vec<_>>()
+    };
+    assert!(errs(json!({ "ref": "col" })).is_empty());
+    assert_eq!(errs(json!({ "ref": "pic" })), vec!["type_mismatch"]);
+    assert_eq!(errs(Json::Null), vec!["missing_input"]);
+}
+
+#[test]
+fn an_n9_anim_curve() {
+    let p = proj(5, json!({ "c": { "type": "anim_curve", "inputs": { "animated": true, "maximum": 10 } } }));
+    let got: Vec<f64> = [0, 2, 4].iter().map(|&f| num(at(&p, "c", f))).collect();
+    assert_eq!(got, vec![0.0, 5.0, 10.0]);
+}
+
+#[test]
+fn an_n10_delay_value() {
+    let keys: Vec<Json> = (0..8).map(|i| json!({ "time": i, "value": i, "ease_out_type": "cut" })).collect();
+    let mk = |inputs: Json| {
+        let mut inputs = inputs;
+        inputs["value"] = json!({ "ref": "v" });
+        proj(8, json!({ "v": { "type": "number", "inputs": { "value": { "anim": keys.clone() } } }, "k": { "type": "number", "inputs": { "value": 42 } }, "d": { "type": "delay_value", "inputs": inputs } }))
+    };
+    let p = mk(json!({ "frames": 2 }));
+    assert_eq!((num(at(&p, "d", 5)), num(at(&p, "d", 0))), (3.0, 0.0));
+    assert_eq!(num(at(&mk(json!({ "frames": 2, "overflow": "loop" })), "d", 1)), 7.0);
+    assert_eq!(num(at(&mk(json!({ "frames": 2, "overflow": "value", "default": { "ref": "k" } })), "d", 1)), 42.0);
+    let p = proj(8, json!({ "src": frame_coded(8), "d": { "type": "delay_value", "inputs": { "value": { "ref": "src" }, "frames": 2 } },
+        "b": { "type": "blend", "inputs": { "background": { "ref": "d" } } } }));
+    assert_eq!(grey_at(&p, "b", 5), Some(3));
+}
+
+#[test]
+fn an_n11_stagger() {
+    let p = remap(8, "stagger", "surface", json!({}));
+    assert_eq!(grey_at(&p, "r", 5), Some(5));
+    let one = json!({ "points": [{ "x": 0, "y": 1, "out": [THIRD, 0] }, { "x": 1, "y": 1, "in": [-THIRD, 0] }] });
+    let p = remap(8, "stagger", "surface", json!({ "stagger_curve": one, "delay_frame": 2 }));
+    assert_eq!((grey_at(&p, "r", 5), grey_at(&p, "r", 1)), (Some(3), None));
+    let p = remap(8, "stagger", "surface", json!({ "stagger_curve": one, "delay_frame": 2, "overflow": "clamp" }));
+    assert_eq!(grey_at(&p, "r", 1), Some(0));
+    let p = remap(8, "stagger", "surface", json!({ "stagger_curve": one, "delay_frame": 2, "overflow": "loop" }));
+    assert_eq!(grey_at(&p, "r", 1), Some(7));
+}
