@@ -42,6 +42,9 @@ export const api = {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new ApiFailure(res.status, data.errors ?? []);
   },
+  export: (path: string, options: Record<string, unknown>) =>
+    call<{ ok: true; files: string[]; frames: number[] }>("POST", `/api/export?${q(path)}`, options),
+  fileUrl: (path: string) => `/api/file?${q(path)}`,
   renderUrl: (path: string, node: string | null, frame: number, key = "") =>
     `/api/render?${q(path)}${node ? `&node=${encodeURIComponent(node)}` : ""}&frame=${frame}&k=${encodeURIComponent(key)}`,
   events: (path: string, onChange: (keys: Record<string, string>) => void): (() => void) => {

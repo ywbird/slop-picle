@@ -10,6 +10,7 @@
   import Timeline from "./Timeline.svelte";
   import AddNode from "./AddNode.svelte";
   import ContextMenu, { type MenuItem } from "./ContextMenu.svelte";
+  import Export from "./Export.svelte";
 
   let { path, catalog }: { path: string; catalog: Catalog } = $props();
 
@@ -30,6 +31,7 @@
   let popup: { x: number; y: number } | null = $state(null);
   let imagePopup: { id: string; x: number; y: number } | null = $state(null);
   let menu: { x: number; y: number; items?: MenuItem[]; add?: boolean } | null = $state(null);
+  let exporting = $state(false);
 
   /** Where a card opens beside node `id`: right of it, or left when there is no room. */
   function beside(id: string, w: number) {
@@ -219,6 +221,7 @@
     if (e.key === "Escape") {
       if (menu) menu = null;
       else if (imagePopup) imagePopup = null;
+      else if (exporting) exporting = false;
       else popup = null;
     }
   }}
@@ -235,6 +238,7 @@
       <a href="#/">slopc</a>
       <span class="path">{path}</span>
       {#if view}<span class="muted">{view.project.settings?.width ?? 32}×{view.project.settings?.height ?? 32}</span>{/if}
+      <button class="export-open" aria-expanded={exporting} disabled={!view} onclick={() => (exporting = !exporting)}>Export</button>
       <span class="history">
         <button aria-label="undo" title="Undo (Ctrl+Z)" disabled={undoStack.length === 0} onclick={() => travel(true)}>↶</button>
         <button aria-label="redo" title="Redo (Ctrl+Shift+Z)" disabled={redoStack.length === 0} onclick={() => travel(false)}>↷</button>
@@ -286,6 +290,9 @@
       {#if popup && selected}
         <Popup {catalog} {view} {frame} {setFrame} bind:id={selected} x={popup.x} y={popup.y} {apply} close={() => (popup = null)} />
       {/if}
+      {#if exporting}
+        <Export {path} {view} {catalog} {selected} {frame} close={() => (exporting = false)} />
+      {/if}
       {#if imagePopup && view.project.nodes?.[imagePopup.id]}
         <ImagePopup
           id={imagePopup.id}
@@ -307,7 +314,8 @@
   header { grid-column: 1 / 3; display: flex; gap: 16px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
   header a { color: var(--ink); font-weight: 500; text-decoration: none; letter-spacing: -0.01em; }
   .path { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-  .history { margin-left: auto; display: flex; gap: 4px; }
+  .export-open { margin-left: auto; }
+  .history { display: flex; gap: 4px; }
   .history button { width: 32px; padding: 0; }
   .graph { position: relative; min-width: 0; }
   .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); white-space: pre-wrap; background: #3a2422; border-color: var(--error); max-width: 70%; text-align: left; z-index: 10; }
