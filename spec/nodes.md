@@ -93,24 +93,36 @@ a `mask`, the output alpha is multiplied by `(r + g + b)/3 · a` of the stretche
 
 ## solid — generate
 
-Upstream: `scripts/node_solid`. Left out: `Foreground`, `Mask`, `Use mask dimension`, `Empty`, `Multiply Alpha`.
+Upstream: `scripts/node_solid`, `shaders/sh_solid`. Left out: the mask's "alpha only" attribute (off).
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `dimension` | dimension | project size | |
 | `color` | color | `#ffffff` | |
+| `foreground` | surface | none (optional) | |
+| `mask` | surface | none (optional) | |
+| `use_mask_dimension` | bool | true | |
+| `empty` | bool | false | |
+| `multiply_alpha` | bool | false | |
 
 | Output | Type |
 |---|---|
-| `surface_out` | surface, `dimension` |
+| `surface_out` | surface, `dimension` (the mask's size when there is a mask and `use_mask_dimension`) |
 
-Every pixel is `color`.
+Every pixel starts as `color`. A `foreground` (stretched to the output size) is laid over it as upstream does:
+`res = res·(1 − F.a) + F·F.a` on all four channels, then `res.a = 1`. A `mask` (stretched) multiplies the alpha by
+`(r + g + b)/3 · a`. `multiply_alpha` multiplies rgb by the alpha. `empty`: the output is transparent with the
+foreground copied at the top-left at its own size.
 
 | ID | Given | Expected |
 |---|---|---|
 | N-SOLID-01 | 4×3 project, `color` `#ff800040` | 4×3 surface, every pixel (255,128,0,64) |
 | N-SOLID-02 | no inputs | every pixel (255,255,255,255) |
 | N-SOLID-03 | 4×3 project, `dimension [2, 5]` | 2×5 surface |
+| N-SOLID-04 | blue, `foreground` all (255,0,0,128) | (128,0,127,255) ± 1 |
+| N-SOLID-05 | 4×4 project, mask 2×1 white then black | 2×1; alpha 255, 0 |
+| N-SOLID-06 | `empty`, 2×2 `foreground` on a 4×4 project | pixel (1,1) = foreground (1,1); pixel (3,3) transparent |
+| N-SOLID-07 | `color` (200,100,50,128), `multiply_alpha` | (100,50,25,128) ± 1 |
 
 ## noise — generate
 
@@ -338,17 +350,19 @@ N-BLEND-16 expectations (from upstream's formulas; `o` = opacity):
 
 ## image — io
 
-Upstream: `scripts/node_image`. Left out: `Padding`; outputs `Path` and `Dimension`.
+Upstream: `scripts/node_image`. Left out: outputs `Path` and `Dimension`.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `path` | path | required | |
+| `padding` | padding | `[0, 0, 0, 0]` | right, top, left, bottom |
 
 | Output | Type |
 |---|---|
 | `surface_out` | surface, the file's size |
 
-Reads a PNG file. Any PNG colour type and bit depth is converted to RGBA8 (16-bit channels keep their high byte).
+Reads a PNG file and adds `padding` transparent pixels around it (upstream: the sprite drawn at (left, top) on a
+larger surface). Any PNG colour type and bit depth is converted to RGBA8 (16-bit channels keep their high byte).
 Colour profiles and gamma chunks are ignored. Other formats fail with `eval_error`. Upstream reads more formats;
 they come later.
 
@@ -360,6 +374,7 @@ they come later.
 | N-IMAGE-04 | missing file | `eval_error` naming the path |
 | N-IMAGE-05 | a JPEG file renamed to `.png` | `eval_error` |
 | N-IMAGE-06 | 5000×1 PNG | `eval_error` (over size limit) |
+| N-IMAGE-07 | 2×2 PNG, `padding [1, 2, 3, 0]` | 6×4; pixel (3, 2) = PNG (0, 0); (0, 0) transparent |
 
 ## output — io
 
@@ -537,7 +552,7 @@ Upstream: `Node_Stripe`, `shaders/sh_stripe`. Type `Solid`, coloring `Alternate`
 
 ## scale — transform
 
-Upstream: `Node_Scale`. Left out: `Fit Mode`, `Move Atlas`.
+Upstream: `Node_Scale`. Left out: `Move Atlas` (no atlases).
 
 | Input | Type | Default | Range |
 |---|---|---|---|
@@ -545,8 +560,11 @@ Upstream: `Node_Scale`. Left out: `Fit Mode`, `Move Atlas`.
 | `mode` | enum `upscale`, `scale_to_size` | `upscale` | |
 | `scale` | number | 1 | > 0 at evaluation |
 | `target_dimension` | dimension | project size | |
+| `fit_mode` | enum `stretch`, `keep_aspect_minimum`, `keep_aspect_maximum` | `stretch` | |
 
-Output size: `upscale` → `(round(w·scale), round(h·scale))`; `scale_to_size` → `target_dimension`. Out-of-limit sizes
+Output size: `upscale` → `(round(w·scale), round(h·scale))`; `scale_to_size` → `target_dimension` with `stretch`,
+else `(round(w·k), round(h·k))` with `k` the smaller (`keep_aspect_minimum`) or larger (`keep_aspect_maximum`) of
+`target / size` per axis. Out-of-limit sizes
 and `scale ≤ 0` fail with `eval_error`. Pixel `(x, y)` = input `(floor((x + 0.5)·w/W), floor((y + 0.5)·h/H))`.
 
 | ID | Given | Expected |
@@ -555,23 +573,36 @@ and `scale ≤ 0` fail with `eval_error`. Pixel `(x, y)` = input `(floor((x + 0.
 | N-SCALE-02 | 4×4 fixture, `scale 0.5` | 2×2 = input pixels (1,1), (3,1), (1,3), (3,3) |
 | N-SCALE-03 | 6×2 fixture, `scale_to_size [3, 1]` | 3×1 = input (1,1), (3,1), (5,1) |
 | N-SCALE-04 | `scale 0` | `eval_error` |
+| N-SCALE-05 | 4×2, `scale_to_size [8, 8]`: `keep_aspect_minimum`; `keep_aspect_maximum` | 8×4; 16×8 |
 
 ## crop — transform
 
-Upstream: `Node_Crop`, aspect ratio `Any` only.
+Upstream: `Node_Crop`.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `surface_in` | surface | required | |
+| `aspect_ratio` | enum `any`, `manual`, `1:1`, `3:2`, `4:3`, `16:9` | `any` | |
+| `ratio` | vec2 | `[1, 1]` | |
 | `crop` | padding | `[0, 0, 0, 0]` | right, top, left, bottom |
+| `fit_mode` | enum `manual`, `width`, `height`, `minimum` | `manual` | |
+| `center` | vec2 | `[0.5, 0.5]` | fraction of the input size |
+| `width` | number | 8 | |
 
-Output `(w − right − left, h − top − bottom)`, each ≥ 1 else `eval_error`; pixel = input `(x + left, y + top)`.
+`any`: output `(w − right − left, h − top − bottom)`, each ≥ 1 else `eval_error`; pixel = input `(x + left, y + top)`.
+Otherwise the ratio `R` is `ratio.x / ratio.y` (`manual`) or the named one (width / height). `fit_mode manual`:
+`W = |width|`, `H = ceil(W / R)`, top-left `(round(cx − W/2), round(cy − H/2))` with `(cx, cy) = center · size`.
+`width`: `W = w`, `H = W·R`; `height`: `H = h`, `W = H / R`; `minimum`: `W = min(w, h·R)`, `H = W·R` (upstream
+multiplies by `R` there); top-left `(round(w/2 − W/2), round(h/2 − H/2))`. Sizes are truncated to integers (≥ 1).
+Pixel = input at top-left + `(x, y)`, transparent outside the input.
 
 | ID | Given | Expected |
 |---|---|---|
 | N-CROP-01 | 4×2 fixture, `[1, 0, 1, 0]` | 2×2 = input columns 1, 2 |
 | N-CROP-02 | 4×4 fixture, `[0, 1, 0, 2]` | 4×1 = input row 1 |
 | N-CROP-03 | 2×2, `[1, 0, 1, 0]` | `eval_error` |
+| N-CROP-04 | 4×4 fixture, `1:1`, `width 2` | 2×2 = input (1..2, 1..2) |
+| N-CROP-05 | 4×2 fixture, `1:1`, `fit_mode width` | 4×4; rows 0 and 3 transparent, rows 1–2 = input rows 0–1 |
 
 ## flip — transform
 
@@ -593,32 +624,37 @@ Pixel = input `(axis & 1 ? w−1−x : x, axis & 2 ? h−1−y : y)`.
 
 ## offset — transform
 
-Upstream: `Node_Offset`, `shaders/sh_offset`. Left out: `Angle`.
+Upstream: `Node_Offset`, `shaders/sh_offset`.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `surface_in` | surface | required | |
 | `x_offset` | number | 0 | −1–1 |
 | `y_offset` | number | 0 | −1–1 |
+| `angle` | number | 0 | degrees |
 
-Pixel = input `floor(fract(uv + offset) ⊙ size)` (wraps).
+As upstream, the shift is `d = −(x_offset, y_offset)` turned by `angle` and scaled by `s = 1 / max(|cos|, |sin|)`:
+pixel = input `floor(fract(uv + s·(d.x cos − d.y sin, d.x sin + d.y cos)) ⊙ size)` (wraps), so a positive `x_offset`
+moves the picture right.
 
 | ID | Given | Expected |
 |---|---|---|
-| N-OFFSET-01 | 4×1 fixture, `x_offset 0.25` | output x = input (x + 1) mod 4 |
+| N-OFFSET-01 | 4×1 fixture, `x_offset 0.25` | output x = input (x − 1) mod 4 (regression: the shift went the other way) |
 | N-OFFSET-02 | 4×4 fixture, `y_offset -0.5` | output y = input (y + 2) mod 4 |
+| N-OFFSET-03 | 4×4 fixture, `x_offset 0.25`, `angle 90` | output y = input (y − 1) mod 4 |
 
 ## downscale — transform
 
-Upstream: `Node_Downscale`, `shaders/sh_downscale`. Left out: `Multiply Alpha`.
+Upstream: `Node_Downscale`, `shaders/sh_downscale`.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `surface_in` | surface | required | |
 | `mode` | enum `mix`, `max`, `min` | `mix` | |
 | `downscale` | number | 1 | ≥ 1 |
+| `multiply_alpha` | bool | false | |
 
-Output `(max(1, ceil(w/s)), max(1, ceil(h/s)))`. For output pixel `(X, Y)`, the samples are input pixels
+With `multiply_alpha`, each sample's rgb is multiplied by its alpha first. Output `(max(1, ceil(w/s)), max(1, ceil(h/s)))`. For output pixel `(X, Y)`, the samples are input pixels
 `floor((X·s + i + 0.5), (Y·s + j + 0.5))` for integers `0 ≤ i, j < s` that fall inside the input.
 `mix`: `c = Σ c·c.a` (all four channels), `rgb = c.rgb / Σ a`, `a = c.a / n` (upstream quirk: alpha is the mean of a²);
 no opaque sample → `(0,0,0,0)`. `max` / `min`: per-channel max / min; `min` keeps the alpha of input pixel
@@ -630,6 +666,7 @@ no opaque sample → `(0,0,0,0)`. `max` / `min`: per-channel max / min; `min` ke
 | N-DOWNSCALE-02 | 4×4 all `(200,100,0,128)`, `downscale 2` | colour (200,100,0), alpha `round(0.502² × 255)` = 64 ± 1 |
 | N-DOWNSCALE-03 | 2×2 with values 10, 20, 30, 40 (grey, opaque), `max` / `min` | 1×1: 40 / 10 |
 | N-DOWNSCALE-04 | 5×5, `downscale 2` | 3×3 |
+| N-DOWNSCALE-05 | 2×1 (200,0,0,255), (0,0,200,128), `downscale 2`, `multiply_alpha` | (133,0,34,160) ± 1 |
 
 ## blur — filter
 
@@ -923,11 +960,15 @@ Upstream: `Node_Greyscale`, `shaders/sh_greyscale`.
 
 ## number — value
 
-Upstream: `Node_Number`. Only `Value`; display inputs left out.
+Upstream: `Node_Number`. Display inputs (`Display Type`, style, range, step, knob, sprite, …) are left out: they only
+change how upstream draws and edits the value.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `value` | number | 0 | |
+| `integer` | bool | false | |
+
+`integer` rounds the value (upstream also makes the output an integer; slopc keeps `number`).
 
 | Output | Type |
 |---|---|
@@ -939,45 +980,57 @@ Upstream: `Node_Color`. Input `color` (color, default `#ffffff`); output `color`
 
 ## palette — value
 
-Upstream: `Node_Palette`. Input `palette` (palette, default `["#000000", "#ffffff"]`); output `palette` (palette).
-Left out: `Trim range`.
+Upstream: `Node_Palette`. Inputs `palette` (palette, default `["#000000", "#ffffff"]`) and `trim_range` (vec2
+`[0, 1]`, 0–1); output `palette` (palette): colours `floor(lo·n)` … `floor(hi·n) − 1` with `lo`, `hi` the smaller and
+larger of `trim_range`. Deviation: when that keeps no colour, `eval_error` (upstream gives an empty palette).
 
 ## math — value
 
-Upstream: `Node_Math`. Operations needing more inputs (`lerp`, `clamp`, `map`) are left out, and `Output Vector`,
-`Clamp Output`.
+Upstream: `Node_Math`. Left out: `Output Vector` (it only changes how upstream draws the value).
 
 | Input | Type | Default | Range |
 |---|---|---|---|
-| `type` | enum `add`, `subtract`, `multiply`, `divide`, `power`, `root`, `sin`, `cos`, `tan`, `modulo`, `floor`, `ceil`, `round`, `abs`, `fract`, `snap`, `log`, `max`, `min` | `add` | |
+| `type` | enum `add`, `subtract`, `multiply`, `divide`, `power`, `root`, `sin`, `cos`, `tan`, `modulo`, `floor`, `ceil`, `round`, `lerp`, `abs`, `clamp`, `snap`, `fract`, `map`, `log`, `max`, `min` | `add` | |
 | `a` | number | 0 | |
 | `b` | number | 0 | |
+| `amount` | number | 0 | |
+| `from` | vec2 | `[0, 1]` | |
+| `to` | vec2 | `[0, 1]` | |
 | `angle` | enum `radians`, `degree` | `degree` | |
 | `to_integer` | bool | false | |
+| `clamp_output` | bool | false | |
 
 | Output | Type |
 |---|---|
 | `result` | number |
 
-`root` = `a^(1/b)`; `modulo` = `a − b·trunc(a/b)`; `snap` = `round(a/b)·b`; `log` = `ln a / ln b`; trig takes `a` in
-`angle` units. Deviation: `divide`, `modulo`, `snap` by 0 give 0, `a`, `a`. A non-finite result is an `eval_error`.
+`root` = `a^(1/b)`, 0 for `b ≤ 0`; `sin`, `cos`, `tan` = trig of `a` in `angle` units times `b` (upstream);
+`modulo` = `a − b·trunc(a/b)`; `snap` = `round(a/b)·b`; `log` = `ln a / ln b`; `lerp` = `a + (b − a)·amount`;
+`clamp` = `min(max(a, b), amount)`; `map` = `lerp(to.x, to.y, (a − from.x)/(from.y − from.x))`, then with
+`clamp_output` `min(max(·, to.x), to.y)`. Deviation: `divide`, `modulo`, `snap` by 0 give 0, `a`, `a`. A non-finite result is an `eval_error`.
 `to_integer` rounds.
 
 ## counter — value
 
-Upstream: `Node_Counter` ("Frame Index"). Left out: `Async`, `Reset`. Reads the frame.
+Upstream: `Node_Counter` ("Frame Index"). Reads the frame.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `mode` | enum `frame_count`, `animation_progress` | `frame_count` | |
 | `start` | number | 1 | |
 | `speed` | number | 1 | |
+| `async` | bool | false | |
+| `reset` | bool | false | |
 
 | Output | Type |
 |---|---|
 | `value` | number |
 
 `frame_count`: `start + frame · speed`; `animation_progress`: `frame / (frames − 1) · speed` (0 when `frames = 1`).
+With `async`, counting restarts at `r`, the last frame ≤ `frame` where `reset` is true (0 if none), as upstream's
+accumulation does when played from frame 0: `frame` becomes `frame − r` in both formulas. `reset` (upstream a
+trigger) is read at earlier frames from its value or animation; deviation: a `reset` from a ref counts at the
+current frame only.
 
 ### Value node tests
 
@@ -986,7 +1039,11 @@ Upstream: `Node_Counter` ("Frame Index"). Left out: `Async`, `Reset`. Reads the 
 | N-VALUE-01 | `number` 2.5 | `Number(2.5)` |
 | N-VALUE-02 | `color` `#123456` feeding `solid.color` | solid is (0x12, 0x34, 0x56, 255) |
 | N-VALUE-03 | `palette` `["#ff0000", "#00ff00"]` feeding `posterize.palette`, red-ish input | output red |
-| N-VALUE-04 | `math` add 2, 3; divide 1, 0; sin 90 (degree); power 2, 10; modulo -7, 3; snap 7, 5; log 8, 2 | 5; 0; 1; 1024; -1; 5; 3 |
+| N-VALUE-04 | `math` add 2, 3; divide 1, 0; sin 90, 1 (degree); power 2, 10; modulo -7, 3; snap 7, 5; log 8, 2 | 5; 0; 1; 1024; -1; 5; 3 |
 | N-VALUE-05 | `math` power -1, 0.5 (NaN) | `eval_error` |
 | N-VALUE-06 | `counter` default at frame 3 of 10; `animation_progress` at frame 9 of 10, speed 2 | 4; 2 |
 | N-VALUE-07 | `counter` evaluated at frames 0 and 1 in one evaluator | re-runs (frame is part of the key) and gives 1 then 2 |
+| N-VALUE-08 | `palette` of 4 colours, `trim_range [0.25, 0.75]`; `[0.5, 0.5]` | colours 1 and 2; `eval_error` |
+| N-VALUE-09 | `counter` `async`, `reset` cut-keyed false at 0, true at 3, false at 4, frames 10: frames 2, 3, 5 | 3, 1, 3 |
+| N-VALUE-10 | `math` lerp 2, 6, `amount 0.25`; clamp 5, 0, `amount 3`; map 5 `from [0, 10]`; map 15 with `clamp_output`; sin 90, 2; root 8, 0 | 3; 3; 0.5; 1; 2; 0 |
+| N-VALUE-11 | `number` 2.6 with `integer` | 3 |
