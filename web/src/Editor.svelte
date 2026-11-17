@@ -80,16 +80,57 @@
     if (selected && !view.project.nodes?.[selected]) selected = null;
   }
 
+  type Step = { undo: Op[]; redo: Op[] };
+  let undoStack: Step[] = $state([]);
+  let redoStack: Step[] = $state([]);
+
+  function showErrors(e: unknown) {
+    toast = e instanceof ApiFailure ? e.errors.map((x) => `${x.node ? x.node + ": " : ""}${x.message}`).join("\n") : String(e);
+  }
+
   async function apply(ops: Op[]) {
     if (ops.length === 0) return;
     try {
       const r = await api.ops(path, ops);
       if (r.created.length === 1) selected = r.created[0];
+      if (r.undo.length) {
+        undoStack = [...undoStack.slice(-99), { undo: r.undo, redo: r.redo }];
+        redoStack = [];
+      }
       toast = "";
     } catch (e) {
-      toast = e instanceof ApiFailure ? e.errors.map((x) => `${x.node ? x.node + ": " : ""}${x.message}`).join("\n") : String(e);
+      showErrors(e);
     }
     await reload();
+  }
+
+  /** Move the last step from one stack to the other, sending its undo or redo ops. */
+  async function travel(back: boolean) {
+    const from = back ? undoStack : redoStack;
+    const step = from[from.length - 1];
+    if (!step) return;
+    if (back) undoStack = undoStack.slice(0, -1);
+    else redoStack = redoStack.slice(0, -1);
+    try {
+      await api.ops(path, back ? step.undo : step.redo);
+      if (back) redoStack = [...redoStack, step];
+      else undoStack = [...undoStack, step];
+      toast = "";
+    } catch (e) {
+      showErrors(e);
+    }
+    await reload();
+  }
+
+  function shortcut(e: KeyboardEvent) {
+    const t = e.target as HTMLElement;
+    if (t.closest("input, textarea, select, [contenteditable]")) return;
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === "z" && !e.shiftKey) travel(true);
+    else if ((k === "z" && e.shiftKey) || (k === "y" && !e.metaKey)) travel(false);
+    else return;
+    e.preventDefault();
   }
 
   function onconnect(c: Connection) {
@@ -119,6 +160,7 @@
 
 <svelte:window
   onkeydown={(e) => {
+    shortcut(e);
     if (e.key === "Escape") {
       if (menu) menu = null;
       else if (imagePopup) imagePopup = null;
@@ -138,6 +180,10 @@
       <a href="#/">slopc</a>
       <span class="path">{path}</span>
       {#if view}<span class="muted">{view.project.settings?.width ?? 32}×{view.project.settings?.height ?? 32}</span>{/if}
+      <span class="history">
+        <button aria-label="undo" title="Undo (Ctrl+Z)" disabled={undoStack.length === 0} onclick={() => travel(true)}>↶</button>
+        <button aria-label="redo" title="Redo (Ctrl+Shift+Z)" disabled={redoStack.length === 0} onclick={() => travel(false)}>↷</button>
+      </span>
     </header>
     <div class="graph">
       <SvelteFlow
@@ -149,6 +195,7 @@
         {isValidConnection}
         {onbeforedelete}
         proOptions={{ hideAttribution: true }}
+        deleteKey={["Delete", "Backspace"]}
         onnodedragstop={({ nodes: moved }) => apply(moved.map((n) => moveOp(n.id, n.position)))}
         onnodeclick={({ node, event }) => nodeClick(node.id, event)}
         selectionOnDrag
@@ -200,6 +247,8 @@
   header { grid-column: 1 / 3; display: flex; gap: 16px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
   header a { color: var(--ink); font-weight: 500; text-decoration: none; letter-spacing: -0.01em; }
   .path { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .history { margin-left: auto; display: flex; gap: 4px; }
+  .history button { width: 32px; padding: 0; }
   .graph { position: relative; min-width: 0; }
   .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); white-space: pre-wrap; background: #3a2422; border-color: var(--error); max-width: 70%; text-align: left; z-index: 10; }
   .center { text-align: center; margin-top: 20vh; }

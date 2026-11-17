@@ -181,7 +181,13 @@ async fn ops_h(State(st): State<AppState>, Query(q): Query<PathQuery>, body: Byt
     let path = existing(&st, &q.path)?;
     let ops_json: JsonValue = parse_body(&body)?;
     match tokio::task::spawn_blocking(move || ops::apply_file(&path, &ops_json)).await.map_err(io_err)? {
-        Ok(Ok(a)) => Ok(Json(ops::outcome_json(&Ok(a)))),
+        Ok(Ok(a)) => {
+            let (undo, redo) = (a.undo.clone(), a.redo.clone());
+            let mut out = ops::outcome_json(&Ok(a));
+            out["undo"] = JsonValue::Array(undo);
+            out["redo"] = JsonValue::Array(redo);
+            Ok(Json(out))
+        }
         Ok(Err(e)) => Err(ApiError(e)),
         Err(e) => Err(io_err(e)),
     }

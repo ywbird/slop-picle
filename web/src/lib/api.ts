@@ -21,7 +21,7 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 }
 
 export type ProjectView = { project: ProjectFile; errors: ApiError[]; keys: Record<string, string> };
-export type OpResult = { ok: true; created: string[]; warnings: ApiError[] };
+export type OpResult = { ok: true; created: string[]; warnings: ApiError[]; undo: Op[]; redo: Op[] };
 
 const q = (path: string) => `path=${encodeURIComponent(path)}`;
 

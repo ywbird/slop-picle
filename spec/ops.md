@@ -11,7 +11,7 @@ An op is a JSON object with an `op` field. Unknown fields are errors (`bad_op`).
 | `add_node` | `type`, optional `id`, `inputs`, `pos`, `label` | Adds a node at the end. Without `id`, the id is the type plus the smallest positive integer not in use (`solid1`, `solid2`, …; upstream also names new nodes after their type). |
 | `remove_node` | `id` | Removes the node. Inputs of other nodes that ref it are unset (upstream disconnects them). |
 | `rename_node` | `id`, `new_id` | Renames; every ref to it (`id` and `id.output`) is rewritten. Order is kept. |
-| `move_node` | `id`, `pos` | Sets `pos` (`[number, number]`). |
+| `move_node` | `id`, `pos` | Sets `pos` (`[number, number]`); `null` removes it (used by undo). |
 | `set_input` | `id`, `input`, `value` | Sets an input to a literal or `{"ref": …}`. |
 | `unset_input` | `id`, `input` | Removes the input (it takes its default). Unsetting an unset input is not an error. |
 | `set_label` | `id`, `label` | Sets the label; `null` removes it. |

@@ -9,6 +9,9 @@ pub struct Applied {
     pub project: Project,
     pub created: Vec<String>,
     pub warnings: Vec<Error>,
+    /// Ops that revert this batch, and ops that redo it (spec/ops.md#undo-data).
+    pub undo: Vec<Json>,
+    pub redo: Vec<Json>,
 }
 
 pub type Outcome = Result<Applied, Vec<Error>>;
@@ -135,8 +138,11 @@ fn apply_one(p: &mut Project, op: &Op, created: &mut Vec<String>) -> Result<(), 
         }
         "move_node" => {
             op.allow(&["id", "pos"])?;
-            let pos = op.pos(op.obj.get("pos").unwrap_or(&Json::Null))?;
-            op.node(p)?.1.pos = Some(pos);
+            let pos = match op.obj.get("pos") {
+                Some(Json::Null) => None,
+                v => Some(op.pos(v.unwrap_or(&Json::Null))?),
+            };
+            op.node(p)?.1.pos = pos;
         }
         "set_input" | "unset_input" => {
             let set = op.str("op")? == "set_input";
@@ -184,7 +190,8 @@ fn apply_one(p: &mut Project, op: &Op, created: &mut Vec<String>) -> Result<(), 
 }
 
 /// Apply a batch (an array of ops, or one op object) to a copy of `p`.
-pub fn apply(p: &Project, ops: &Json) -> Outcome {
+pub fn apply(before: &Project, ops: &Json) -> Outcome {
+    let p = before;
     let list: Vec<&Json> = match ops {
         Json::Array(a) => a.iter().collect(),
         Json::Object(_) => vec![ops],
@@ -200,7 +207,9 @@ pub fn apply(p: &Project, ops: &Json) -> Outcome {
     if !errors.is_empty() {
         return Err(errors);
     }
-    Ok(Applied { project: p, created, warnings })
+    let undo = restore_ops(&p, before);
+    let redo = restore_ops(before, &p);
+    Ok(Applied { project: p, created, warnings, undo, redo })
 }
 
 /// Load, apply and save under the project lock. `Err` is an I/O error.
@@ -214,6 +223,70 @@ pub fn apply_file(path: &Path, ops: &Json) -> std::io::Result<Outcome> {
         }
         Ok(outcome)
     })?
+}
+
+/// A batch that turns `current` into `target`, touching only what differs.
+pub fn restore_ops(current: &Project, target: &Project) -> Vec<Json> {
+    let mut ops = vec![];
+    let removed: std::collections::HashSet<&str> = current
+        .nodes
+        .iter()
+        .filter(|(id, n)| target.nodes.get(*id).is_none_or(|t| t.ty != n.ty))
+        .map(|(id, _)| id.as_str())
+        .collect();
+    for id in current.nodes.keys().filter(|id| removed.contains(id.as_str())) {
+        ops.push(json!({ "op": "remove_node", "id": id }));
+    }
+    for (id, t) in &target.nodes {
+        match current.nodes.get(id).filter(|_| !removed.contains(id.as_str())) {
+            None => {
+                let mut op = json!({ "op": "add_node", "id": id, "type": t.ty });
+                if !t.inputs.is_empty() {
+                    op["inputs"] = Json::Object(t.inputs.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
+                }
+                if let Some(l) = &t.label {
+                    op["label"] = json!(l);
+                }
+                if let Some(pos) = &t.pos {
+                    op["pos"] = json!(pos);
+                }
+                ops.push(op);
+            }
+            Some(c) => {
+                if c.label != t.label {
+                    ops.push(json!({ "op": "set_label", "id": id, "label": t.label }));
+                }
+                if c.pos != t.pos {
+                    ops.push(json!({ "op": "move_node", "id": id, "pos": t.pos }));
+                }
+                // remove_node above unsets refs to removed nodes, so those count as unset.
+                let effective = |k: &str| c.inputs.get(k).filter(|v| ref_target(v).is_none_or(|r| !removed.contains(r)));
+                for (k, v) in &t.inputs {
+                    if effective(k) != Some(v) {
+                        ops.push(json!({ "op": "set_input", "id": id, "input": k, "value": v }));
+                    }
+                }
+                for k in c.inputs.keys().filter(|k| !t.inputs.contains_key(*k) && effective(k).is_some()) {
+                    ops.push(json!({ "op": "unset_input", "id": id, "input": k }));
+                }
+            }
+        }
+    }
+    let (cs, ts) = (&current.settings, &target.settings);
+    let mut set = serde_json::Map::new();
+    for (k, a, b) in [("width", cs.width, ts.width), ("height", cs.height, ts.height), ("frames", cs.frames, ts.frames)] {
+        if a != b {
+            set.insert(k.into(), json!(b));
+        }
+    }
+    if cs.fps != ts.fps {
+        set.insert("fps".into(), json!(ts.fps));
+    }
+    if !set.is_empty() {
+        set.insert("op".into(), json!("set_settings"));
+        ops.push(Json::Object(set));
+    }
+    ops
 }
 
 pub fn outcome_json(o: &Outcome) -> Json {
