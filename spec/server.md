@@ -58,6 +58,12 @@ are absent.
   Several changes close together may be merged into one event.
 - A comment line `: ping` every 15 s keeps proxies from closing the stream.
 
+## MCP over HTTP (M5)
+
+`/mcp` serves the tools of [mcp.md](mcp.md) over Streamable HTTP, behind the same token check. rmcp's loopback-only
+`Host` allow-list is turned off so LAN and remote clients can connect; the token is what keeps other sites out
+(a DNS-rebinding page cannot know it, and the cookie is not sent to another host).
+
 ## Static files
 
 The web UI build (`web/dist`) is embedded in the binary. Unknown non-API paths serve `index.html`. A binary built
@@ -84,3 +90,7 @@ Tests start `slopc serve --port 0 --root <tempdir> --token test-token` and parse
 | SRV-13 | `GET /` and `GET /some/page` | 200 `text/html` |
 | SRV-14 | no `--token`, `SLOPC_TOKEN=env-token` | URL shows `env-token`; it authorises |
 | SRV-15 | no token anywhere | URL shows a 32-hex-character token |
+| SRV-16 | `POST /mcp` `initialize` without token / with Bearer | 401 / a JSON-RPC result |
+| SRV-17 | over `/mcp` with a `Host` header that is not loopback (e.g. `192.168.1.5:7420`): initialize, `tools/list`, create, edit, render | six tools; render returns an image |
+| SRV-18 | `POST /api/upload?path=assets/a.png` with a PNG; then an `image` node reading it is rendered | 201; the file exists; the render shows its pixels |
+| SRV-19 | upload of non-PNG bytes / to `a.txt` / to `../a.png` | 400 `bad_request` / 400 `bad_path` / 400 `path_outside_root` |

@@ -19,7 +19,8 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
   key so it reloads only when the key changes). Nodes with errors get a red border and list the messages.
 - *Inspector* (right). For the selected node: id (rename), label, and a widget per input type: number and int fields
   with min/max, bool checkbox, colour picker plus alpha, vec2 / dimension / padding as number groups, enum select,
-  string and path text, palette as a list of colours (add, remove), gradient as type + key list (time, colour).
+  string and path text (a `path` input also has an upload button: the chosen PNG goes to `assets/<file name>` via
+  `POST /api/upload`, then the input is set to that path), palette as a list of colours (add, remove), gradient as type + key list (time, colour).
   A ref input shows its source and a disconnect button. Each input has a reset button (unset to default).
 - *Preview* (bottom of the inspector). The selected node (or the project's `output` node) rendered with a pixelated
   zoom (1–32) and a frame number (0 … frames − 1). Project settings (width, height, frames, fps) are editable here.
@@ -69,3 +70,4 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-08 | `bun run build` | succeeds; `web/dist/index.html` exists |
 | WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `slopc edit` adds a node that appears without a reload |
 | WEB-10 | headless Chromium: connect, change a number widget | the file on disk has the new ref and value |
+| WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |
