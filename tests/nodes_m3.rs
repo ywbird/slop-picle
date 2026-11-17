@@ -858,7 +858,7 @@ fn ty_14_palette() {
 #[test]
 fn ty_15_16_gradient() {
     assert!(lit_errors("gradient", "gradient", json!({ "type": "rgb", "keys": [{ "time": 0, "color": "#000000" }] })).is_empty());
-    assert_eq!(lit_errors("gradient", "gradient", json!({ "type": "hsv", "keys": [{ "time": 0, "color": "#000000" }] })), vec!["invalid_enum"]);
+    assert_eq!(lit_errors("gradient", "gradient", json!({ "type": "lab", "keys": [{ "time": 0, "color": "#000000" }] })), vec!["invalid_enum"]);
     assert_eq!(lit_errors("gradient", "gradient", json!({ "type": "rgb", "keys": [{ "time": 2, "color": "#000000" }] })), vec!["out_of_range"]);
     assert_eq!(lit_errors("gradient", "gradient", json!({ "type": "rgb", "keys": [] })), vec!["out_of_range"]);
     assert_eq!(lit_errors("gradient", "gradient", json!({ "type": "rgb", "keys": [{ "time": 0 }] })), vec!["type_mismatch"]);
@@ -896,4 +896,25 @@ fn ev_10_ref_clamped() {
         })
     };
     assert_eq!(eval(2, 2, nodes(json!({ "ref": "v" })), "b").unwrap(), eval(2, 2, nodes(json!(1)), "b").unwrap());
+}
+
+#[test]
+fn ty_19_gradient_blends() {
+    let grad = |ty: &str, to: &str| {
+        let nodes = json!({
+            "s": { "type": "solid", "inputs": { "color": "#808080" } },
+            "c": { "type": "colorize", "inputs": { "surface_in": { "ref": "s" }, "gradient": { "type": ty, "keys": [{ "time": 0, "color": "#ff0000" }, { "time": 1, "color": to }] } } }
+        });
+        eval(2, 2, nodes, "c").unwrap().pixel(0, 0)
+    };
+    for (ty, to, want) in [
+        ("rgb", "#0000ff", [127, 0, 128, 255]),
+        ("constant", "#0000ff", [255, 0, 0, 255]),
+        ("hsv", "#0000ff", [254, 0, 255, 255]),
+        ("hsv_inverted", "#0000ff", [0, 255, 2, 255]),
+        ("oklab", "#0000ff", [139, 84, 161, 255]),
+        ("cmyk", "#000000", [127, 64, 64, 255]),
+    ] {
+        assert_close(grad(ty, to), want, 2);
+    }
 }
