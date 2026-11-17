@@ -89,9 +89,11 @@ A proposal of 33 nodes.
 ## Milestones
 
 M3 and M4 do not depend on each other.
+Every milestone starts by writing the spec for its areas in `spec/`, then the tests from the spec's cases, then the code.
 
 ### M1 — Headless core and CLI
 
+- [ ] Spec: project file, types and catalog, evaluation and GPU, M1 nodes, CLI
 - [ ] Scaffold: Cargo crate `slopc`, `.gitignore`
 - [ ] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
 - [ ] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
@@ -155,4 +157,8 @@ Not in the MVP, in rough order: undo / redo, keyframes and timeline, GIF and spr
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
-_None yet._
+- [x] Add rule: write the SPEC first, then work
+  - [x] Form: `spec/` folder, one file per area
+  - [x] Scope now: M1 areas only; other areas when their milestone starts
+- [x] Add rule: use test cases actively
+  - [x] Each spec section lists numbered test cases; tests are written from them before the code (TDD)

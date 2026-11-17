@@ -5,6 +5,11 @@
    If working on an item raises an ambiguity, list the points to confirm as an indented list under that item.
 3. Commit to git after every change.
 4. Everything in the repository is written in English: docs, code, comments, commit messages.
+5. Spec first. Before implementing an area, write or update its spec in `spec/` (one file per area).
+   Code follows the spec. If code needs to differ, change the spec first.
+6. Tests first. Each spec section ends with numbered test cases (given → expected).
+   Write the tests from those cases before the code, see them fail, then implement until they pass.
+   Every bug fix adds a test case to the spec and a test that reproduces it.
 
 Feedback format:
 
@@ -13,4 +18,4 @@ Feedback format:
   - To confirm: the open question
 ```
 
-The plan, the decisions and the milestones live in `TODO.md`.
+The plan, the decisions and the milestones live in `TODO.md`. Specs live in `spec/`, see `spec/README.md`.
