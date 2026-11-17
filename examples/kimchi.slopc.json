@@ -457,8 +457,8 @@
         "surface_in": {
           "ref": "turn_height"
         },
-        "x_offset": -0.0208,
-        "y_offset": -0.0208
+        "x_offset": 0.0208,
+        "y_offset": 0.0208
       },
       "pos": [
         1560,

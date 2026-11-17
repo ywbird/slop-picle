@@ -40,6 +40,8 @@ pub struct Ctx<'a> {
     pub root: Option<&'a Path>,
     /// The surface input at each frame a `Remap::Frames` node reads; empty for other nodes.
     pub sources: Vec<Value>,
+    /// The node's inputs as written, for nodes that read an input at other frames (`counter`'s reset).
+    pub inputs: &'a [GInput],
 }
 
 impl Ctx<'_> {
@@ -227,7 +229,7 @@ impl Evaluator {
                         Some(f) => vec![self.node(&mut run.at(f.clamp(0, run.frames - 1)), &src)?[oi].clone()],
                         // A value remap (`delay_value`) picks its fallback in `run`.
                         None if gnode.def.inputs[0].ty != Type::Surface => {
-                            let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources: vec![] };
+                            let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources: vec![], inputs: &gnode.inputs };
                             (gnode.def.run)(&mut ctx, &values).map_err(|e| Error::at("eval_error", id, None, format!("{e:?}")))?
                         }
                         None => {
@@ -244,7 +246,7 @@ impl Evaluator {
                 }
             }
         }
-        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources };
+        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources, inputs: &gnode.inputs };
         let mut outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
             NodeError::Eval(m) => Error::at("eval_error", id, None, m),
             NodeError::Gpu(m) => Error::at("gpu_unavailable", id, None, m),
@@ -315,6 +317,10 @@ fn key(run: &mut Run, id: &str) -> Result<u64, Error> {
                     _ => unreachable!(),
                 };
                 hash_value(&v, &mut h);
+                // A node that reads the frame may read its inputs at other frames too (`counter`'s reset).
+                if let (GInput::Anim(a), true) = (gi, gnode.def.reads_frame) {
+                    format!("{a:?}").hash(&mut h);
+                }
                 if let Value::Path(rel) = &v {
                     std::fs::read(run.dir.join(rel)).ok().hash(&mut h);
                 }

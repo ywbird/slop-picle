@@ -147,10 +147,51 @@ pub fn cos_sin(deg: f64) -> (f32, f32) {
 const SOLID_IN: &[I] = &[
     I::new("dimension", T::Dimension, D::ProjectSize, "Output size; absent means the project size."),
     I::new("color", T::Color, D::Color("#ffffff"), "Fill colour."),
+    I::new("foreground", T::Surface, D::None, "Image laid over the colour, stretched to the output size."),
+    I::new("mask", T::Surface, D::None, "Alpha times the mask (mean of rgb times alpha)."),
+    I::new("use_mask_dimension", T::Bool, D::Bool(true), "With a mask, use its size."),
+    I::new("empty", T::Bool, D::Bool(false), "Transparent, with the foreground at the top-left."),
+    I::new("multiply_alpha", T::Bool, D::Bool(false), "Multiply the colour by the alpha."),
 ];
 
+// Ported from upstream shaders/sh_solid.fsh.
+const SOLID_WGSL: &str = "
+fn st(px: vec2<i32>, src_size: vec2<u32>) -> vec2<i32> {
+    return vec2<i32>(floor((vec2<f32>(px) + 0.5) * vec2<f32>(src_size) / vec2<f32>(p.out_info.xy)));
+}
+fn shade(px: vec2<i32>) -> vec4<f32> {
+    var res = p.color;
+    if (p.foreground_info.z == 1u) {
+        let f = load_foreground(st(px, p.foreground_info.xy));
+        res = res * (1.0 - f.a) + f * f.a;
+        res.a = 1.0;
+    }
+    if (p.mask_info.z == 1u) {
+        let m = load_mask(st(px, p.mask_info.xy));
+        res.a = res.a * (m.r + m.g + m.b) / 3.0 * m.a;
+    }
+    if (p.multiply_alpha.x == 1u) { res = vec4<f32>(res.rgb * res.a, res.a); }
+    return res;
+}
+";
+
 fn solid(ctx: &mut Ctx, v: &[Value]) -> R {
-    out(shader::run(ctx, v, "fn shade(px: vec2<i32>) -> vec4<f32> { return p.color; }", &[], dim(&v[0]))?)
+    let size = match (v[3].surface(), &v[4]) {
+        (Some(m), Value::Bool(true)) => [m.width, m.height],
+        _ => dim(&v[0]),
+    };
+    if v[5] == Value::Bool(true) {
+        let mut s = Surface::new(size[0], size[1]);
+        if let Some(fg) = v[2].surface() {
+            let w = fg.width.min(s.width) as usize * 4;
+            for y in 0..fg.height.min(s.height) as usize {
+                let (from, to) = (y * fg.width as usize * 4, y * s.width as usize * 4);
+                s.data[to..to + w].copy_from_slice(&fg.data[from..from + w]);
+            }
+        }
+        return out(s);
+    }
+    out(shader::run(ctx, v, SOLID_WGSL, &[], size)?)
 }
 
 // ---------- noise ----------
@@ -465,12 +506,30 @@ fn blend(ctx: &mut Ctx, v: &[Value]) -> R {
 
 // ---------- image ----------
 
-const IMAGE_IN: &[I] = &[I::required("path", T::Path, "PNG file, relative to the project file.")];
+const IMAGE_IN: &[I] = &[
+    I::required("path", T::Path, "PNG file, relative to the project file."),
+    I::new("padding", T::Padding, D::Json("[0,0,0,0]"), "Transparent pixels added around: right, top, left, bottom."),
+];
 
 fn image(ctx: &mut Ctx, v: &[Value]) -> R {
     let Value::Path(rel) = &v[0] else { unreachable!() };
     let bytes = std::fs::read(ctx.path(rel)?).map_err(|e| format!("cannot read '{rel}': {e}"))?;
-    out(Surface::from_png(&bytes).map_err(|e| format!("'{rel}': {e}"))?)
+    let img = Surface::from_png(&bytes).map_err(|e| format!("'{rel}': {e}"))?;
+    let Value::Padding([r, t, l, b]) = v[1] else { unreachable!() };
+    if [r, t, l, b] == [0; 4] {
+        return out(img);
+    }
+    let (w, h) = (img.width as u64 + r as u64 + l as u64, img.height as u64 + t as u64 + b as u64);
+    if w > surface::MAX_SIDE as u64 || h > surface::MAX_SIDE as u64 || !surface::size_ok(w as u32, h as u32) {
+        return Err(format!("padded image would be {w}x{h}, outside the size limits").into());
+    }
+    let mut s = Surface::new(w as u32, h as u32);
+    let row = img.width as usize * 4;
+    for y in 0..img.height as usize {
+        let to = ((y + t as usize) * w as usize + l as usize) * 4;
+        s.data[to..to + row].copy_from_slice(&img.data[y * row..(y + 1) * row]);
+    }
+    out(s)
 }
 
 // ---------- output ----------
