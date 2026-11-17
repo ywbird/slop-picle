@@ -311,7 +311,7 @@ fn n_offset_01_x() {
     let f = fixture(4, 1);
     let s = ok(&f, "offset", json!({ "x_offset": 0.25 }));
     for x in 0..4 {
-        assert_eq!(s.pixel(x, 0), f.pixel((x + 1) % 4, 0));
+        assert_eq!(s.pixel(x, 0), f.pixel((x + 3) % 4, 0));
     }
 }
 
@@ -782,7 +782,7 @@ fn n_value_04_math() {
     for (op, a, b, e) in [
         ("add", 2.0, 3.0, 5.0),
         ("divide", 1.0, 0.0, 0.0),
-        ("sin", 90.0, 0.0, 1.0),
+        ("sin", 90.0, 1.0, 1.0),
         ("power", 2.0, 10.0, 1024.0),
         ("modulo", -7.0, 3.0, -1.0),
         ("snap", 7.0, 5.0, 5.0),
@@ -917,4 +917,78 @@ fn ty_19_gradient_blends() {
     ] {
         assert_close(grad(ty, to), want, 2);
     }
+}
+
+// ---------- area 3: remaining inputs (batch 1) ----------
+
+#[test]
+fn n_offset_03_angle() {
+    let f = fixture(4, 4);
+    let s = ok(&f, "offset", json!({ "x_offset": 0.25, "angle": 90 }));
+    for y in 0..4 {
+        assert_eq!(s.pixel(1, y), f.pixel(1, (y + 3) % 4), "y {y}");
+    }
+}
+
+#[test]
+fn n_downscale_05_multiply_alpha() {
+    let src = surface(2, 1, |x, _| if x == 0 { [200, 0, 0, 255] } else { [0, 0, 200, 128] });
+    let s = ok(&src, "downscale", json!({ "downscale": 2, "multiply_alpha": true }));
+    assert_close(s.pixel(0, 0), [133, 0, 34, 160], 1);
+}
+
+#[test]
+fn n_scale_05_fit_mode() {
+    let f = fixture(4, 2);
+    let size = |fit: &str| {
+        let s = ok(&f, "scale", json!({ "mode": "scale_to_size", "target_dimension": [8, 8], "fit_mode": fit }));
+        (s.width, s.height)
+    };
+    assert_eq!((size("keep_aspect_minimum"), size("keep_aspect_maximum")), ((8, 4), (16, 8)));
+}
+
+#[test]
+fn n_crop_04_05_aspect() {
+    let f = fixture(4, 4);
+    let s = ok(&f, "crop", json!({ "aspect_ratio": "1:1", "width": 2 }));
+    assert_eq!((s.width, s.height), (2, 2));
+    assert_eq!((s.pixel(0, 0), s.pixel(1, 1)), (f.pixel(1, 1), f.pixel(2, 2)));
+    let f = fixture(4, 2);
+    let s = ok(&f, "crop", json!({ "aspect_ratio": "1:1", "fit_mode": "width" }));
+    assert_eq!((s.width, s.height), (4, 4));
+    assert_eq!((s.pixel(0, 0)[3], s.pixel(2, 1), s.pixel(3, 2), s.pixel(1, 3)[3]), (0, f.pixel(2, 0), f.pixel(3, 1), 0));
+}
+
+#[test]
+fn n_value_08_palette_trim() {
+    let pal = json!(["#000000", "#ff0000", "#00ff00", "#ffffff"]);
+    let v = value(json!({ "n": { "type": "palette", "inputs": { "palette": pal, "trim_range": [0.25, 0.75] } } }), "n", 1, 0).unwrap();
+    assert_eq!(v, Value::Palette(vec![[255, 0, 0, 255], [0, 255, 0, 255]]));
+    assert!(value(json!({ "n": { "type": "palette", "inputs": { "palette": pal, "trim_range": [0.5, 0.5] } } }), "n", 1, 0).is_err());
+}
+
+#[test]
+fn n_value_09_counter_async_reset() {
+    let reset = json!({ "anim": [{ "time": 0, "value": false }, { "time": 3, "value": true }, { "time": 4, "value": false }] });
+    let at = |f: i64| match value(json!({ "n": { "type": "counter", "inputs": { "async": true, "reset": reset } } }), "n", 10, f).unwrap() {
+        Value::Number(v) => v,
+        v => panic!("{v:?}"),
+    };
+    assert_eq!((at(2), at(3), at(5)), (3.0, 1.0, 3.0));
+}
+
+#[test]
+fn n_value_10_math_more() {
+    let m = |inputs: Json| num(json!({ "n": { "type": "math", "inputs": inputs } }));
+    assert_eq!(m(json!({ "type": "lerp", "a": 2, "b": 6, "amount": 0.25 })), 3.0);
+    assert_eq!(m(json!({ "type": "clamp", "a": 5, "b": 0, "amount": 3 })), 3.0);
+    assert_eq!(m(json!({ "type": "map", "a": 5, "from": [0, 10] })), 0.5);
+    assert_eq!(m(json!({ "type": "map", "a": 15, "from": [0, 10], "clamp_output": true })), 1.0);
+    assert!((m(json!({ "type": "sin", "a": 90, "b": 2 })) - 2.0).abs() < 1e-9);
+    assert_eq!(m(json!({ "type": "root", "a": 8, "b": 0 })), 0.0);
+}
+
+#[test]
+fn n_value_11_number_integer() {
+    assert_eq!(num(json!({ "n": { "type": "number", "inputs": { "value": 2.6, "integer": true } } })), 3.0);
 }

@@ -25,6 +25,25 @@ fn n_solid_03_dimension() {
     assert_eq!((s.width, s.height), (2, 5));
 }
 
+#[test]
+fn n_solid_04_to_07_inputs() {
+    let dir = tempfile::tempdir().unwrap();
+    write_png(dir.path(), "fg.png", &surface(4, 4, |_, _| [255, 0, 0, 128]));
+    write_png(dir.path(), "mask.png", &surface(2, 1, |x, _| if x == 0 { [255, 255, 255, 255] } else { [0, 0, 0, 255] }));
+    write_png(dir.path(), "small.png", &surface(2, 2, |x, y| [x as u8 * 100, y as u8 * 100, 7, 255]));
+    let img = |n: &str| json!({ "type": "image", "inputs": { "path": format!("{n}.png") } });
+    let run = |inputs: Json| {
+        let nodes = json!({ "fg": img("fg"), "mask": img("mask"), "small": img("small"), "s": { "type": "solid", "inputs": inputs } });
+        eval_in(dir.path(), 4, 4, nodes, "s").unwrap()
+    };
+    assert_close(run(json!({ "color": "#0000ff", "foreground": { "ref": "fg" } })).pixel(0, 0), [128, 0, 127, 255], 1);
+    let s = run(json!({ "mask": { "ref": "mask" } }));
+    assert_eq!(((s.width, s.height), s.pixel(0, 0)[3], s.pixel(1, 0)[3]), ((2, 1), 255, 0));
+    let s = run(json!({ "empty": true, "foreground": { "ref": "small" } }));
+    assert_eq!((s.width, s.pixel(1, 1), s.pixel(3, 3)), (4, [100, 100, 7, 255], [0, 0, 0, 0]));
+    assert_close(run(json!({ "color": "#c8643280", "multiply_alpha": true })).pixel(0, 0), [100, 50, 25, 128], 1);
+}
+
 // ---------- noise ----------
 
 fn noise(w: u32, h: u32, inputs: Json) -> Surface {
@@ -202,6 +221,15 @@ fn n_transform_10_alpha() {
             assert_eq!(&s.pixel(x, y)[..3], &f.pixel(x, y)[..3]);
         }
     }
+}
+
+#[test]
+fn n_image_07_padding() {
+    let dir = tempfile::tempdir().unwrap();
+    let px = surface(2, 2, |x, y| [x as u8 * 100 + 10, y as u8 * 100 + 10, 0, 255]);
+    write_png(dir.path(), "a.png", &px);
+    let s = eval_in(dir.path(), 4, 4, json!({ "i": { "type": "image", "inputs": { "path": "a.png", "padding": [1, 2, 3, 0] } } }), "i").unwrap();
+    assert_eq!((s.width, s.height, s.pixel(3, 2), s.pixel(0, 0)[3]), (6, 4, px.pixel(0, 0), 0));
 }
 
 // ---------- blend ----------
