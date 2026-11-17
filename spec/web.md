@@ -31,8 +31,8 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
 - *Side panel* (right). Project settings only (width, height, frames, fps). Collapsed by default to a thin bar; only its
   toggle opens and closes it (selection does not).
 - *Canvas.* A square line grid (24 px cells) with a stronger major line every 5 cells, as in upstream's graph.
-  As upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected); middle-drag, or Space + drag, pans; the wheel
-  zooms. Dragging any selected node moves the whole selection, saved as one batch of `move_node` ops.
+  As upstream: left-drag on the empty canvas draws a selection box (nodes it touches are selected); middle-drag pans (Space plays and pauses
+  the animation, as upstream); the wheel zooms. Dragging any selected node moves the whole selection, saved as one batch of `move_node` ops.
 - *Context menus* (right click). On a node: Delete, Duplicate. On an edge: Disconnect. On the empty canvas: the
   add-node search, adding at the cursor. Esc or a click elsewhere closes the menu.
 - *Add node.* A search box (top left, and in the canvas menu) listing catalog types by name, category and

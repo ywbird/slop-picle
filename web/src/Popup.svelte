@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ProjectView } from "./lib/api";
-  import { getDef, literalOp, parseRef, resetOp, type Catalog, type Op } from "./lib/graph";
+  import { animOf, getDef, literalOp, parseRef, resetOp, type Catalog, type Op } from "./lib/graph";
   import Widget from "./Widget.svelte";
   import { dragOffset } from "./lib/drag";
 
@@ -8,6 +8,8 @@
     catalog,
     view,
     id = $bindable(),
+    frame,
+    setFrame,
     x,
     y,
     apply,
@@ -16,6 +18,8 @@
     catalog: Catalog;
     view: ProjectView;
     id: string;
+    frame: number;
+    setFrame: (f: number) => void;
     x: number;
     y: number;
     apply: (ops: Op[]) => Promise<void>;
@@ -30,6 +34,13 @@
   let dy = $state(0);
 
   const drag = (e: PointerEvent) => dragOffset(e, { x: dx, y: dy }, (x, y) => ((dx = x), (dy = y)));
+
+  const keyOp = (input: string, value: unknown, extra: Record<string, unknown> = {}): Op => ({ op: "set_key", id, input, time: frame, value, ...extra });
+  const EASE: Record<string, Record<string, unknown>> = {
+    linear: { ease_in_type: "linear", ease_out_type: "linear" },
+    bezier: { ease_in_type: "bezier", ease_out_type: "bezier", ease_in: [0.5, 1], ease_out: [0.5, 0] },
+    cut: { ease_in_type: "cut", ease_out_type: "cut" },
+  };
 
   async function rename(e: Event & { currentTarget: HTMLInputElement }) {
     const to = e.currentTarget.value.trim();
@@ -67,8 +78,43 @@
             {:else if input.type === "surface"}
               <span class="muted">connect in the graph</span>
             {:else}
-              <Widget def={input} value={raw ?? input.default} {size} change={(v) => apply([literalOp(id, input.name, v)])} />
+              {@const keys = animOf(raw)}
+              {@const here = keys?.find((k) => k.time === frame)}
+              {@const at = view.animated[id]?.[input.name]}
+              {@const shown = keys ? (typeof at === "number" ? Math.round(at * 1000) / 1000 : at) : (raw ?? input.default)}
+              <button
+                class="key"
+                class:on={!!here}
+                class:animated={!!keys}
+                aria-label="key {input.name} at frame {frame}"
+                title={here ? "Remove the key on this frame" : "Set a key on this frame"}
+                onclick={() => apply([here ? { op: "remove_key", id, input: input.name, time: frame } : keyOp(input.name, shown)])}
+              >◆</button>
+              <Widget
+                def={input}
+                value={shown}
+                {size}
+                change={(v) => apply([keys ? keyOp(input.name, v) : literalOp(id, input.name, v)])}
+              />
               {#if raw !== undefined}<button class="icon" title="reset to default" aria-label="reset {input.name}" onclick={() => apply([resetOp(id, input.name)])}>↺</button>{/if}
+              {#if keys}
+                <div class="keys">
+                  {#each keys as k (k.time)}
+                    <button class="chip" class:current={k.time === frame} onclick={() => setFrame(k.time)}>{k.time}</button>
+                  {/each}
+                  {#if here}
+                    <select
+                      aria-label="ease of the key on this frame"
+                      value={here.ease_in_type ?? "linear"}
+                      onchange={(e) => apply([keyOp(input.name, here.value, EASE[e.currentTarget.value])])}
+                    >
+                      <option value="linear">linear</option>
+                      <option value="bezier">bezier</option>
+                      <option value="cut">cut</option>
+                    </select>
+                  {/if}
+                </div>
+              {/if}
             {/if}
           </span>
         </div>
@@ -93,4 +139,10 @@
   .widget { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
   .ref { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
   .icon { width: 28px; padding: 0; }
+  .key { width: 24px; min-height: 24px; padding: 0; font-size: 10px; color: var(--muted); background: none; border-color: transparent; }
+  .key.animated { color: var(--accent); }
+  .key.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  .keys { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; padding-left: 28px; }
+  .chip { min-height: 22px; padding: 0 6px; font-family: var(--font-mono); font-size: 11px; }
+  .chip.current { border-color: var(--accent); color: var(--accent); }
 </style>

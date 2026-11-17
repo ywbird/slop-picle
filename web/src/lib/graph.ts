@@ -57,8 +57,16 @@ export function getDef(catalog: Catalog, type: string): NodeDef | undefined {
   return catalog.find((d) => d.type === type);
 }
 
-export function thumbUrl(path: string, node: string, key: string): string {
-  return `/api/render?path=${encodeURIComponent(path)}&node=${encodeURIComponent(node)}&k=${encodeURIComponent(key)}`;
+export function thumbUrl(path: string, node: string, key: string, frame = 0): string {
+  return `/api/render?path=${encodeURIComponent(path)}&node=${encodeURIComponent(node)}&frame=${frame}&k=${encodeURIComponent(key)}`;
+}
+
+/** An animated input value: `{ anim: [{ time, value, ... }], on_end? }`. */
+export type AnimKey = { time: number; value: unknown; ease_in_type?: string; ease_out_type?: string };
+export function animOf(v: unknown): AnimKey[] | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const a = (v as { anim?: unknown }).anim;
+  return Array.isArray(a) ? (a as AnimKey[]) : null;
 }
 
 /** Positions for nodes without `pos`: column = longest ref chain to the node, rows in file order. */
@@ -95,6 +103,7 @@ export function toFlow(
   errors: ApiError[],
   keys: Record<string, string>,
   path: string,
+  frame = 0,
 ): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const pos = layout(project);
   const nodes: FlowNode[] = [];
@@ -113,7 +122,7 @@ export function toFlow(
         def,
         inputs: n.inputs ?? {},
         errors: errors.filter((e) => e.node === id).map((e) => (e.input ? `${e.input}: ${e.message}` : e.message)),
-        thumb: surfaceOut && keys[id] ? thumbUrl(path, id, keys[id]) : null,
+        thumb: surfaceOut && keys[id] ? thumbUrl(path, id, keys[id], frame) : null,
       },
     });
     for (const [input, v] of Object.entries(n.inputs ?? {})) {

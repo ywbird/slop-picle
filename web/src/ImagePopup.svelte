@@ -6,16 +6,15 @@
     path,
     id,
     nodeKey,
-    frames,
+    frame,
     x,
     y,
     close,
-  }: { path: string; id: string; nodeKey: string; frames: number; x: number; y: number; close: () => void } = $props();
+  }: { path: string; id: string; nodeKey: string; frame: number; x: number; y: number; close: () => void } = $props();
 
   let dx = $state(0);
   let dy = $state(0);
   let zoom = $state(8);
-  let frame = $state(0);
   let failed = $state(false);
   const src = $derived(api.renderUrl(path, id, frame, nodeKey));
   const drag = (e: PointerEvent) => dragOffset(e, { x: dx, y: dy }, (a, b) => ((dx = a), (dy = b)));
@@ -30,7 +29,7 @@
   </div>
   <div class="controls">
     <label>zoom <input type="range" min="1" max="32" bind:value={zoom} /></label>
-    <label>frame <input type="number" min="0" max={frames - 1} bind:value={frame} /></label>
+    <span class="muted">frame {frame}</span>
   </div>
   <div class="canvas">
     <img

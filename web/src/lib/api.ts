@@ -20,7 +20,12 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   return data as T;
 }
 
-export type ProjectView = { project: ProjectFile; errors: ApiError[]; keys: Record<string, string> };
+export type ProjectView = {
+  project: ProjectFile;
+  errors: ApiError[];
+  keys: Record<string, string>;
+  animated: Record<string, Record<string, unknown>>;
+};
 export type OpResult = { ok: true; created: string[]; warnings: ApiError[]; undo: Op[]; redo: Op[] };
 
 const q = (path: string) => `path=${encodeURIComponent(path)}`;
@@ -30,7 +35,7 @@ export const api = {
   catalog: () => call<Catalog>("GET", "/api/catalog"),
   projects: () => call<{ projects: string[] }>("GET", "/api/projects"),
   create: (path: string, width: number, height: number) => call<unknown>("POST", "/api/projects", { path, width, height }),
-  project: (path: string) => call<ProjectView>("GET", `/api/project?${q(path)}`),
+  project: (path: string, frame = 0) => call<ProjectView>("GET", `/api/project?${q(path)}&frame=${frame}`),
   ops: (path: string, ops: Op[]) => call<OpResult>("POST", `/api/ops?${q(path)}`, ops),
   upload: async (path: string, file: Blob) => {
     const res = await fetch(`/api/upload?${q(path)}`, { method: "POST", body: file, credentials: "same-origin" });

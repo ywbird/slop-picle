@@ -6,6 +6,7 @@
   import Popup from "./Popup.svelte";
   import SidePanel from "./Panel.svelte";
   import ImagePopup from "./ImagePopup.svelte";
+  import Timeline from "./Timeline.svelte";
   import AddNode from "./AddNode.svelte";
   import ContextMenu, { type MenuItem } from "./ContextMenu.svelte";
 
@@ -15,6 +16,14 @@
   let nodes: FlowNode[] = $state.raw([]);
   let edges: FlowEdge[] = $state.raw([]);
   let selected: string | null = $state(null);
+  let frame = $state(0);
+  let timeline: Timeline | null = $state(null);
+  const frames = $derived((view as ProjectView | null)?.project.settings?.frames ?? 1);
+
+  function setFrame(f: number) {
+    frame = Math.max(0, Math.min(frames - 1, f));
+    reload();
+  }
   let toast = $state("");
   let missing = $state(false);
   const nodeTypes = { slopc: SlopNode };
@@ -63,12 +72,13 @@
 
   async function reload() {
     try {
-      view = await api.project(path);
+      view = await api.project(path, frame);
+      if (frame >= (view.project.settings?.frames ?? 1)) frame = 0;
     } catch (e) {
       if (e instanceof ApiFailure && e.status === 404) missing = true;
       return;
     }
-    const flow = toFlow(view.project, catalog, view.errors, view.keys, path);
+    const flow = toFlow(view.project, catalog, view.errors, view.keys, path, frame);
     // Keep unchanged objects so an in-progress drag or connection survives a reload.
     const old = new Map(nodes.map((n) => [n.id, n]));
     const same = (a: FlowNode | undefined, b: FlowNode) =>
@@ -125,6 +135,14 @@
   function shortcut(e: KeyboardEvent) {
     const t = e.target as HTMLElement;
     if (t.closest("input, textarea, select, [contenteditable]")) return;
+    if (frames > 1 && !(e.ctrlKey || e.metaKey)) {
+      if (e.key === ",") return setFrame((frame - 1 + frames) % frames);
+      if (e.key === ".") return setFrame((frame + 1) % frames);
+      if (e.key === " " && !t.closest("button")) {
+        e.preventDefault();
+        return timeline?.toggle();
+      }
+    }
     if (!(e.ctrlKey || e.metaKey)) return;
     const k = e.key.toLowerCase();
     if (k === "z" && !e.shiftKey) travel(true);
@@ -196,6 +214,7 @@
         {onbeforedelete}
         proOptions={{ hideAttribution: true }}
         deleteKey={["Delete", "Backspace"]}
+        panActivationKey={null}
         onnodedragstop={({ nodes: moved }) => apply(moved.map((n) => moveOp(n.id, n.position)))}
         onnodeclick={({ node, event }) => nodeClick(node.id, event)}
         selectionOnDrag
@@ -222,17 +241,20 @@
       </SvelteFlow>
       {#if toast}<button class="toast" onclick={() => (toast = "")}>{toast}</button>{/if}
     </div>
+    {#if frames > 1 && view}
+      <div class="bottom"><Timeline bind:this={timeline} {frame} {frames} fps={view.project.settings?.fps ?? 12} {setFrame} /></div>
+    {/if}
     {#if view}
       <SidePanel {view} {apply} />
       {#if popup && selected}
-        <Popup {catalog} {view} bind:id={selected} x={popup.x} y={popup.y} {apply} close={() => (popup = null)} />
+        <Popup {catalog} {view} {frame} {setFrame} bind:id={selected} x={popup.x} y={popup.y} {apply} close={() => (popup = null)} />
       {/if}
       {#if imagePopup && view.project.nodes?.[imagePopup.id]}
         <ImagePopup
           {path}
           id={imagePopup.id}
           nodeKey={view.keys[imagePopup.id] ?? ""}
-          frames={view.project.settings?.frames ?? 1}
+          {frame}
           x={imagePopup.x}
           y={imagePopup.y}
           close={() => (imagePopup = null)}
@@ -243,7 +265,9 @@
 {/if}
 
 <style>
-  .editor { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 44px 1fr; height: 100vh; }
+  .editor { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 44px 1fr auto; height: 100vh; }
+  .bottom { grid-column: 1 / 3; grid-row: 3; }
+  .editor > :global(aside.panel) { grid-column: 2; grid-row: 2; }
   header { grid-column: 1 / 3; display: flex; gap: 16px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
   header a { color: var(--ink); font-weight: 500; text-decoration: none; letter-spacing: -0.01em; }
   .path { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
