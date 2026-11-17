@@ -146,6 +146,9 @@ Not in the MVP, in rough order: keyframes and timeline, GIF and sprite-sheet exp
 
 User feedback as a checklist. Points that need a decision are indented under their item.
 
+- [ ] 아직 원본 프로젝트에서 구현하지 않은 부분을 구현하자.
+  - To confirm: which upstream areas, in what order (upstream has ~710 nodes in 25 categories; slopc has 33 node subsets)
+
 - [x] webui: 노드 선택 delete 키로 삭제 (commit 8aed5ab)
 - [x] webui: 복수 선택 노드 일괄 delete 키 삭제 (commit 8aed5ab)
 - [x] webui: undo 기능 + 단축키 (commit 8aed5ab)
