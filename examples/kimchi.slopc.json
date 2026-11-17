@@ -1,0 +1,1439 @@
+{
+  "slopc": 1,
+  "settings": {
+    "width": 64,
+    "height": 64,
+    "frames": 24,
+    "fps": 12
+  },
+  "nodes": {
+    "bg_light": {
+      "type": "gradient",
+      "label": "warm light on a dark table",
+      "inputs": {
+        "type": "circular",
+        "center": [
+          0.5,
+          0.42
+        ],
+        "radius": 0.72,
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#5a3326"
+            },
+            {
+              "time": 0.5,
+              "color": "#2c1914"
+            },
+            {
+              "time": 1,
+              "color": "#100908"
+            }
+          ]
+        }
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    "bg": {
+      "type": "dither",
+      "inputs": {
+        "surface_in": {
+          "ref": "bg_light"
+        },
+        "pattern": "bayer_4x4",
+        "palette": [
+          "#100908",
+          "#1f120e",
+          "#311c16",
+          "#48291f",
+          "#5a3326"
+        ]
+      },
+      "pos": [
+        260,
+        0
+      ]
+    },
+    "ribs": {
+      "type": "stripe",
+      "label": "cabbage ribs (pale) and leaves (red)",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "size": 0.26,
+        "strip_ratio": 0.45,
+        "angle": 35,
+        "color_1": "#f7e3a6",
+        "color_2": "#d0391f"
+      },
+      "pos": [
+        0,
+        320
+      ]
+    },
+    "chunks": {
+      "type": "cellular",
+      "label": "kimchi pieces",
+      "inputs": {
+        "dimension": [
+          64,
+          64
+        ],
+        "seed": 3,
+        "scale": 6
+      },
+      "pos": [
+        0,
+        640
+      ]
+    },
+    "pieces_wide": {
+      "type": "displace",
+      "label": "ribs bent differently in each piece",
+      "inputs": {
+        "surface_in": {
+          "ref": "ribs"
+        },
+        "displace_map": {
+          "ref": "chunks"
+        },
+        "strength": 0.35,
+        "position": [
+          0.6,
+          -0.8
+        ]
+      },
+      "pos": [
+        260,
+        320
+      ]
+    },
+    "pieces": {
+      "type": "crop",
+      "inputs": {
+        "surface_in": {
+          "ref": "pieces_wide"
+        },
+        "crop": [
+          8,
+          8,
+          8,
+          8
+        ]
+      },
+      "pos": [
+        520,
+        320
+      ]
+    },
+    "cells": {
+      "type": "crop",
+      "inputs": {
+        "surface_in": {
+          "ref": "chunks"
+        },
+        "crop": [
+          8,
+          8,
+          8,
+          8
+        ]
+      },
+      "pos": [
+        260,
+        640
+      ]
+    },
+    "creases": {
+      "type": "colorize",
+      "label": "dark creases between pieces",
+      "inputs": {
+        "surface_in": {
+          "ref": "cells"
+        },
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.45,
+              "color": "#f5e0d5"
+            },
+            {
+              "time": 0.7,
+              "color": "#b8503f"
+            },
+            {
+              "time": 0.86,
+              "color": "#6e1416"
+            },
+            {
+              "time": 1,
+              "color": "#2e0609"
+            }
+          ]
+        }
+      },
+      "pos": [
+        520,
+        640
+      ]
+    },
+    "shaped": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "pieces"
+        },
+        "foreground": {
+          "ref": "creases"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        780,
+        320
+      ]
+    },
+    "speck_noise": {
+      "type": "noise",
+      "inputs": {
+        "dimension": [
+          24,
+          24
+        ],
+        "seed": 5
+      },
+      "pos": [
+        0,
+        1024
+      ]
+    },
+    "speck_big": {
+      "type": "scale",
+      "inputs": {
+        "surface_in": {
+          "ref": "speck_noise"
+        },
+        "scale": 2
+      },
+      "pos": [
+        260,
+        1024
+      ]
+    },
+    "specks": {
+      "type": "colorize",
+      "label": "chilli flakes, spring onion, sesame",
+      "inputs": {
+        "surface_in": {
+          "ref": "speck_big"
+        },
+        "keep_alpha": false,
+        "gradient": {
+          "type": "constant",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#00000000"
+            },
+            {
+              "time": 0.86,
+              "color": "#6e0b10"
+            },
+            {
+              "time": 0.95,
+              "color": "#62a83c"
+            },
+            {
+              "time": 0.975,
+              "color": "#f6e3b4"
+            }
+          ]
+        }
+      },
+      "pos": [
+        520,
+        1024
+      ]
+    },
+    "kimchi": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "shaped"
+        },
+        "foreground": {
+          "ref": "specks"
+        }
+      },
+      "pos": [
+        780,
+        640
+      ]
+    },
+    "dome": {
+      "type": "gradient",
+      "label": "heap shape: a spherical cap",
+      "inputs": {
+        "dimension": [
+          48,
+          48
+        ],
+        "type": "circular",
+        "radius": 0.2799,
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.3,
+              "color": "#f3f3f3"
+            },
+            {
+              "time": 0.5,
+              "color": "#dddddd"
+            },
+            {
+              "time": 0.65,
+              "color": "#c2c2c2"
+            },
+            {
+              "time": 0.78,
+              "color": "#a0a0a0"
+            },
+            {
+              "time": 0.88,
+              "color": "#797979"
+            },
+            {
+              "time": 0.95,
+              "color": "#505050"
+            },
+            {
+              "time": 1,
+              "color": "#000000"
+            }
+          ]
+        }
+      },
+      "pos": [
+        0,
+        1408
+      ]
+    },
+    "height": {
+      "type": "blend",
+      "label": "height map, lower in the creases",
+      "inputs": {
+        "background": {
+          "ref": "dome"
+        },
+        "foreground": {
+          "ref": "creases"
+        },
+        "blend_mode": "multiply",
+        "opacity": 0.7
+      },
+      "pos": [
+        780,
+        1408
+      ]
+    },
+    "height_alpha": {
+      "type": "colorize",
+      "inputs": {
+        "surface_in": {
+          "ref": "height"
+        },
+        "keep_alpha": false,
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#ffffff00"
+            },
+            {
+              "time": 1,
+              "color": "#ffffffff"
+            }
+          ]
+        }
+      },
+      "pos": [
+        1040,
+        1408
+      ]
+    },
+    "heap_src": {
+      "type": "blend",
+      "label": "texture with the height in alpha",
+      "inputs": {
+        "background": {
+          "ref": "height_alpha"
+        },
+        "foreground": {
+          "ref": "kimchi"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        1040,
+        640
+      ]
+    },
+    "turn": {
+      "type": "transform",
+      "label": "turntable: one turn per loop",
+      "inputs": {
+        "surface_in": {
+          "ref": "heap_src"
+        },
+        "rotation": {
+          "anim": [
+            {
+              "time": 0,
+              "value": 0
+            },
+            {
+              "time": 24,
+              "value": 360
+            }
+          ]
+        }
+      },
+      "pos": [
+        1300,
+        640
+      ]
+    },
+    "turn_height": {
+      "type": "transform",
+      "label": "the height map turns with it",
+      "inputs": {
+        "surface_in": {
+          "ref": "height"
+        },
+        "rotation": {
+          "anim": [
+            {
+              "time": 0,
+              "value": 0
+            },
+            {
+              "time": 24,
+              "value": 360
+            }
+          ]
+        }
+      },
+      "pos": [
+        1300,
+        1408
+      ]
+    },
+    "height_up_left": {
+      "type": "offset",
+      "inputs": {
+        "surface_in": {
+          "ref": "turn_height"
+        },
+        "x_offset": -0.0208,
+        "y_offset": -0.0208
+      },
+      "pos": [
+        1560,
+        1728
+      ]
+    },
+    "height_up_left_inv": {
+      "type": "invert",
+      "inputs": {
+        "surface_in": {
+          "ref": "height_up_left"
+        }
+      },
+      "pos": [
+        1820,
+        1728
+      ]
+    },
+    "slope": {
+      "type": "blend",
+      "label": "light from the upper left, computed after turning so it stays put",
+      "inputs": {
+        "background": {
+          "ref": "turn_height"
+        },
+        "foreground": {
+          "ref": "height_up_left_inv"
+        },
+        "opacity": 0.5
+      },
+      "pos": [
+        1820,
+        1408
+      ]
+    },
+    "light": {
+      "type": "colorize",
+      "inputs": {
+        "surface_in": {
+          "ref": "slope"
+        },
+        "color_range": [
+          0.47,
+          0.53
+        ],
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#8a4a44"
+            },
+            {
+              "time": 0.5,
+              "color": "#f0e6df"
+            },
+            {
+              "time": 1,
+              "color": "#ffffff"
+            }
+          ]
+        }
+      },
+      "pos": [
+        2080,
+        1408
+      ]
+    },
+    "lit": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "turn"
+        },
+        "foreground": {
+          "ref": "light"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        2080,
+        640
+      ]
+    },
+    "heap_canvas": {
+      "type": "solid",
+      "inputs": {
+        "dimension": [
+          48,
+          74
+        ],
+        "color": "#00000000"
+      },
+      "pos": [
+        2340,
+        0
+      ]
+    },
+    "layer_0": {
+      "type": "threshold",
+      "label": "layer k: where the height passes level k",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.04
+      },
+      "pos": [
+        2340,
+        320
+      ]
+    },
+    "stack_0": {
+      "type": "blend",
+      "label": "sprite stacking: each layer drawn higher than the last",
+      "inputs": {
+        "background": {
+          "ref": "heap_canvas"
+        },
+        "foreground": {
+          "ref": "layer_0"
+        },
+        "position": [
+          0.5,
+          0.67568
+        ]
+      },
+      "pos": [
+        2600,
+        320
+      ]
+    },
+    "layer_1": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.109
+      },
+      "pos": [
+        2340,
+        640
+      ]
+    },
+    "stack_1": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_0"
+        },
+        "foreground": {
+          "ref": "layer_1"
+        },
+        "position": [
+          0.5,
+          0.64865
+        ]
+      },
+      "pos": [
+        2600,
+        640
+      ]
+    },
+    "layer_2": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.178
+      },
+      "pos": [
+        2340,
+        960
+      ]
+    },
+    "stack_2": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_1"
+        },
+        "foreground": {
+          "ref": "layer_2"
+        },
+        "position": [
+          0.5,
+          0.62162
+        ]
+      },
+      "pos": [
+        2600,
+        960
+      ]
+    },
+    "layer_3": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.248
+      },
+      "pos": [
+        2340,
+        1280
+      ]
+    },
+    "stack_3": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_2"
+        },
+        "foreground": {
+          "ref": "layer_3"
+        },
+        "position": [
+          0.5,
+          0.59459
+        ]
+      },
+      "pos": [
+        2600,
+        1280
+      ]
+    },
+    "layer_4": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.317
+      },
+      "pos": [
+        2340,
+        1600
+      ]
+    },
+    "stack_4": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_3"
+        },
+        "foreground": {
+          "ref": "layer_4"
+        },
+        "position": [
+          0.5,
+          0.56757
+        ]
+      },
+      "pos": [
+        2600,
+        1600
+      ]
+    },
+    "layer_5": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.386
+      },
+      "pos": [
+        2340,
+        1920
+      ]
+    },
+    "stack_5": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_4"
+        },
+        "foreground": {
+          "ref": "layer_5"
+        },
+        "position": [
+          0.5,
+          0.54054
+        ]
+      },
+      "pos": [
+        2600,
+        1920
+      ]
+    },
+    "layer_6": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.455
+      },
+      "pos": [
+        2340,
+        2240
+      ]
+    },
+    "stack_6": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_5"
+        },
+        "foreground": {
+          "ref": "layer_6"
+        },
+        "position": [
+          0.5,
+          0.51351
+        ]
+      },
+      "pos": [
+        2600,
+        2240
+      ]
+    },
+    "layer_7": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.525
+      },
+      "pos": [
+        2860,
+        320
+      ]
+    },
+    "stack_7": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_6"
+        },
+        "foreground": {
+          "ref": "layer_7"
+        },
+        "position": [
+          0.5,
+          0.48649
+        ]
+      },
+      "pos": [
+        3120,
+        320
+      ]
+    },
+    "layer_8": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.594
+      },
+      "pos": [
+        2860,
+        640
+      ]
+    },
+    "stack_8": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_7"
+        },
+        "foreground": {
+          "ref": "layer_8"
+        },
+        "position": [
+          0.5,
+          0.45946
+        ]
+      },
+      "pos": [
+        3120,
+        640
+      ]
+    },
+    "layer_9": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.663
+      },
+      "pos": [
+        2860,
+        960
+      ]
+    },
+    "stack_9": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_8"
+        },
+        "foreground": {
+          "ref": "layer_9"
+        },
+        "position": [
+          0.5,
+          0.43243
+        ]
+      },
+      "pos": [
+        3120,
+        960
+      ]
+    },
+    "layer_10": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.732
+      },
+      "pos": [
+        2860,
+        1280
+      ]
+    },
+    "stack_10": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_9"
+        },
+        "foreground": {
+          "ref": "layer_10"
+        },
+        "position": [
+          0.5,
+          0.40541
+        ]
+      },
+      "pos": [
+        3120,
+        1280
+      ]
+    },
+    "layer_11": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.802
+      },
+      "pos": [
+        2860,
+        1600
+      ]
+    },
+    "stack_11": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_10"
+        },
+        "foreground": {
+          "ref": "layer_11"
+        },
+        "position": [
+          0.5,
+          0.37838
+        ]
+      },
+      "pos": [
+        3120,
+        1600
+      ]
+    },
+    "layer_12": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.871
+      },
+      "pos": [
+        2860,
+        1920
+      ]
+    },
+    "stack_12": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_11"
+        },
+        "foreground": {
+          "ref": "layer_12"
+        },
+        "position": [
+          0.5,
+          0.35135
+        ]
+      },
+      "pos": [
+        3120,
+        1920
+      ]
+    },
+    "layer_13": {
+      "type": "threshold",
+      "inputs": {
+        "surface_in": {
+          "ref": "lit"
+        },
+        "alpha": true,
+        "alpha_threshold": 0.94
+      },
+      "pos": [
+        2860,
+        2240
+      ]
+    },
+    "stack_13": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "stack_12"
+        },
+        "foreground": {
+          "ref": "layer_13"
+        },
+        "position": [
+          0.5,
+          0.32432
+        ]
+      },
+      "pos": [
+        3120,
+        2240
+      ]
+    },
+    "heap_squash": {
+      "type": "transform",
+      "label": "squash for the 3/4 view",
+      "inputs": {
+        "surface_in": {
+          "ref": "stack_13"
+        },
+        "scale": [
+          1,
+          0.5
+        ]
+      },
+      "pos": [
+        3380,
+        320
+      ]
+    },
+    "heap_ao": {
+      "type": "gradient",
+      "label": "darker where the heap meets the juice",
+      "inputs": {
+        "dimension": [
+          48,
+          74
+        ],
+        "angle": 90,
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.55,
+              "color": "#ffffff"
+            },
+            {
+              "time": 0.75,
+              "color": "#c49090"
+            },
+            {
+              "time": 1,
+              "color": "#7a4040"
+            }
+          ]
+        }
+      },
+      "pos": [
+        3380,
+        0
+      ]
+    },
+    "heap_shaded": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "heap_squash"
+        },
+        "foreground": {
+          "ref": "heap_ao"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        3640,
+        320
+      ]
+    },
+    "gloss": {
+      "type": "threshold",
+      "label": "wet shine",
+      "inputs": {
+        "surface_in": {
+          "ref": "heap_shaded"
+        },
+        "brightness": true,
+        "brightness_threshold": 0.84
+      },
+      "pos": [
+        3640,
+        640
+      ]
+    },
+    "heap_glossy": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "heap_shaded"
+        },
+        "foreground": {
+          "ref": "gloss"
+        },
+        "blend_mode": "add",
+        "opacity": 0.6,
+        "preserve_alpha": true
+      },
+      "pos": [
+        3900,
+        320
+      ]
+    },
+    "heap": {
+      "type": "posterize",
+      "label": "snap to a kimchi palette",
+      "inputs": {
+        "surface_in": {
+          "ref": "heap_glossy"
+        },
+        "posterize_alpha": false,
+        "palette": [
+          "#3d080c",
+          "#6e0f14",
+          "#a01e1a",
+          "#cc3a22",
+          "#e8643a",
+          "#f2a35e",
+          "#f7d79a",
+          "#fff4d6",
+          "#3f7a2a",
+          "#6fb043"
+        ]
+      },
+      "pos": [
+        4160,
+        320
+      ]
+    },
+    "body_shape": {
+      "type": "shape",
+      "inputs": {
+        "dimension": [
+          64,
+          30
+        ],
+        "shape": "ellipse",
+        "center": [
+          0.5,
+          0
+        ],
+        "half_size": [
+          0.40625,
+          0.6333333333333333
+        ]
+      },
+      "pos": [
+        780,
+        1920
+      ]
+    },
+    "body_shade": {
+      "type": "gradient",
+      "label": "porcelain, lit from the left",
+      "inputs": {
+        "dimension": [
+          64,
+          30
+        ],
+        "gradient": {
+          "type": "rgb",
+          "keys": [
+            {
+              "time": 0,
+              "color": "#fffaf0"
+            },
+            {
+              "time": 0.3,
+              "color": "#eee7d7"
+            },
+            {
+              "time": 0.7,
+              "color": "#bdb5a4"
+            },
+            {
+              "time": 1,
+              "color": "#8a8273"
+            }
+          ]
+        }
+      },
+      "pos": [
+        780,
+        2240
+      ]
+    },
+    "body": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "body_shape"
+        },
+        "foreground": {
+          "ref": "body_shade"
+        },
+        "blend_mode": "multiply"
+      },
+      "pos": [
+        1040,
+        1920
+      ]
+    },
+    "foot": {
+      "type": "shape",
+      "inputs": {
+        "dimension": [
+          64,
+          30
+        ],
+        "shape": "ellipse",
+        "center": [
+          0.5,
+          0.6333333333333333
+        ],
+        "half_size": [
+          0.1875,
+          0.1
+        ],
+        "shape_color": "#7b7366"
+      },
+      "pos": [
+        780,
+        2560
+      ]
+    },
+    "lower": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "foot"
+        },
+        "foreground": {
+          "ref": "body"
+        }
+      },
+      "pos": [
+        1040,
+        2240
+      ]
+    },
+    "bowl_canvas": {
+      "type": "solid",
+      "inputs": {
+        "color": "#00000000"
+      },
+      "pos": [
+        1040,
+        2560
+      ]
+    },
+    "bowl_body": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "bowl_canvas"
+        },
+        "foreground": {
+          "ref": "lower"
+        },
+        "position": [
+          0.5,
+          0.765625
+        ]
+      },
+      "pos": [
+        1300,
+        2240
+      ]
+    },
+    "rim": {
+      "type": "shape",
+      "inputs": {
+        "shape": "ellipse",
+        "center": [
+          0.5,
+          0.53125
+        ],
+        "half_size": [
+          0.40625,
+          0.203125
+        ],
+        "shape_color": "#f6f1e6"
+      },
+      "pos": [
+        1300,
+        2560
+      ]
+    },
+    "bowl_rim": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "bowl_body"
+        },
+        "foreground": {
+          "ref": "rim"
+        }
+      },
+      "pos": [
+        1560,
+        2240
+      ]
+    },
+    "juice": {
+      "type": "shape",
+      "label": "kimchi juice",
+      "inputs": {
+        "shape": "ellipse",
+        "center": [
+          0.5,
+          0.53125
+        ],
+        "half_size": [
+          0.34375,
+          0.171875
+        ],
+        "shape_color": "#9c2c1d"
+      },
+      "pos": [
+        1560,
+        2560
+      ]
+    },
+    "bowl": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "bowl_rim"
+        },
+        "foreground": {
+          "ref": "juice"
+        }
+      },
+      "pos": [
+        1820,
+        2240
+      ]
+    },
+    "dish": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "bowl"
+        },
+        "foreground": {
+          "ref": "heap"
+        },
+        "position": [
+          0.5,
+          0.42969
+        ]
+      },
+      "pos": [
+        4420,
+        320
+      ]
+    },
+    "dish_line": {
+      "type": "outline",
+      "inputs": {
+        "surface_in": {
+          "ref": "dish"
+        },
+        "width": 1,
+        "profile": "square",
+        "color": "#2a1216"
+      },
+      "pos": [
+        4420,
+        640
+      ]
+    },
+    "dish_shadow": {
+      "type": "shadow",
+      "label": "shadow on the table",
+      "inputs": {
+        "surface_in": {
+          "ref": "dish_line"
+        },
+        "strength": 0.6,
+        "grow": 0,
+        "blur": 2,
+        "shift": [
+          3,
+          2
+        ]
+      },
+      "pos": [
+        4420,
+        960
+      ]
+    },
+    "scene": {
+      "type": "blend",
+      "inputs": {
+        "background": {
+          "ref": "bg"
+        },
+        "foreground": {
+          "ref": "dish_shadow"
+        }
+      },
+      "pos": [
+        4680,
+        320
+      ]
+    },
+    "out": {
+      "type": "output",
+      "inputs": {
+        "surface_in": {
+          "ref": "scene"
+        }
+      },
+      "pos": [
+        4940,
+        320
+      ]
+    }
+  }
+}
