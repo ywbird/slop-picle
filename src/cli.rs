@@ -66,6 +66,17 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export PNG images or sequences, GIFs and APNGs.
+    Export {
+        file: PathBuf,
+        /// Output file: .png (%f or %3f for one file per frame), .gif or .apng.
+        #[arg(short = 'o', long = "output")]
+        out: String,
+        #[command(flatten)]
+        options: crate::export::Options,
+        #[arg(long)]
+        json: bool,
+    },
     /// Apply a batch of edit ops (a JSON array, or one op object; `-` reads stdin).
     Edit {
         file: PathBuf,
@@ -102,6 +113,7 @@ pub fn main() -> i32 {
         Cmd::Show { file, json } => show(&file, json),
         Cmd::Validate { file, json } => validate(&file, json),
         Cmd::Render { file, out, node, frame, scale, json } => render(&file, &out, node.as_deref(), frame, scale, json),
+        Cmd::Export { file, out, options, json } => export(&file, &out, &options, json),
         Cmd::Edit { file, ops, json } => edit(&file, &ops, json),
         Cmd::Mcp { root } => match crate::mcp::run_stdio(&root) {
             Ok(()) => 0,
@@ -359,6 +371,39 @@ fn render(file: &Path, out: &str, node: Option<&str>, frame: i64, scale: u32, js
         println!("wrote {out} ({}x{})", s.width, s.height);
     }
     0
+}
+
+fn export(file: &Path, out: &str, o: &crate::export::Options, json: bool) -> i32 {
+    let l = match load(file, json) {
+        Ok(l) => l,
+        Err(c) => return c,
+    };
+    let blocking: Vec<Error> = l.blocking().into_iter().cloned().collect();
+    let Some(p) = l.project.as_ref().filter(|_| blocking.is_empty()) else {
+        return fail(json, EXIT_INVALID, &blocking);
+    };
+    let dir = file.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let write = |name: &str, bytes: &[u8]| crate::export::write_file(Path::new(name), name, bytes);
+    match crate::export::export(p, dir, out, o, &mut Evaluator::new(), write) {
+        Ok(x) => {
+            if json {
+                print_json(&json!({ "ok": true, "files": x.files, "frames": x.frames }));
+            } else {
+                for f in &x.files {
+                    println!("wrote {f}");
+                }
+            }
+            0
+        }
+        Err(e) => {
+            let code = match e.code.as_str() {
+                "bad_path" => EXIT_USAGE,
+                "io_error" => EXIT_IO,
+                _ => exit_code(&e),
+            };
+            fail(json, code, &[e])
+        }
+    }
 }
 
 fn edit(file: &Path, ops_arg: &str, json: bool) -> i32 {

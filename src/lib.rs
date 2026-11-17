@@ -2,6 +2,7 @@ pub mod anim;
 pub mod catalog;
 pub mod cli;
 pub mod eval;
+pub mod export;
 pub mod gpu;
 pub mod mcp;
 pub mod nodes;

@@ -64,6 +64,18 @@ pub type RunFn = fn(&mut Ctx, &[Value]) -> Result<Vec<Value>, NodeError>;
 /// the surface input, or None for an empty (transparent) output.
 pub type RemapFn = fn(&[Value], i64, i64, f64) -> Option<i64>;
 
+/// From the node's non-surface inputs and the frame count, the frames at which to read the surface input.
+pub type FramesFn = fn(&[Value], i64) -> Vec<i64>;
+
+/// How a node reads its surface input at frames other than the current one.
+#[derive(Clone, Copy)]
+pub enum Remap {
+    /// Output the surface input at another frame; `run` is not called.
+    Frame(RemapFn),
+    /// `run` gets the surface input at these frames in `Ctx::sources`.
+    Frames(FramesFn),
+}
+
 pub struct NodeDef {
     pub ty: &'static str,
     pub category: &'static str,
@@ -73,8 +85,8 @@ pub struct NodeDef {
     pub run: RunFn,
     /// The node's output depends on the frame number.
     pub reads_frame: bool,
-    /// Set for time-remapping nodes; `run` is then not called.
-    pub remap: Option<RemapFn>,
+    /// Set for nodes that read their surface input at other frames.
+    pub remap: Option<Remap>,
 }
 
 impl NodeDef {

@@ -1,6 +1,6 @@
 //! Node definitions (spec/nodes.md). Upstream: Pixel Composer `scripts/node_*`, `shaders/sh_*` (MIT).
 
-use crate::catalog::{Default as D, InputDef as I, NodeDef, OutputDef as O};
+use crate::catalog::{Default as D, InputDef as I, NodeDef, OutputDef as O, Remap};
 use crate::eval::{Ctx, NodeError};
 use crate::shader;
 use crate::surface::Surface;
@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 mod anim;
 mod color;
+mod compose;
 mod filter;
 mod generate;
 mod transform;
@@ -227,7 +228,7 @@ const fn remap_node(ty: &'static str, description: &'static str, inputs: &'stati
         },
         run: anim::no_run,
         reads_frame: true,
-        remap: Some(remap),
+        remap: Some(Remap::Frame(remap)),
     }
 }
 
@@ -247,6 +248,10 @@ pub static ALL: &[NodeDef] = &[
         remap: None,
     },
     NodeDef { ty: "blend", category: "compose", description: "Draw a foreground over a background with a blend mode.", inputs: BLEND_IN, outputs: SURFACE_OUT, run: blend, reads_frame: false, remap: None },
+    NodeDef {
+        remap: Some(Remap::Frames(compose::sheet_frames)),
+        ..node("render_sprite_sheet", "compose", "Lay out the frames of an animation in one image.", compose::SHEET_IN, compose::render_sprite_sheet)
+    },
     node("gradient", "generate", "Draw a linear, circular or radial gradient.", generate::GRADIENT_IN, generate::gradient),
     NodeDef { outputs: &[O { name: "colored", ty: T::Surface }], ..node("shape", "generate", "Draw a rectangle or ellipse.", generate::SHAPE_IN, generate::shape) },
     node("cellular", "generate", "Cellular (Worley) noise: distance to the nearest feature point.", generate::CELLULAR_IN, generate::cellular),

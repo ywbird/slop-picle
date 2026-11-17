@@ -11,7 +11,7 @@ use std::process::{Command, Output};
 
 /// Frame `i`'s colour in the test projects.
 fn colour(i: u8) -> [u8; 4] {
-    [i * 60 + 10, 20, 200 - i * 40, 255]
+    [i * 40 + 10, 20, 200 - i * 30, 255]
 }
 
 fn hex(c: [u8; 4]) -> String {

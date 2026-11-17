@@ -1,6 +1,6 @@
 //! Graph evaluation with a content-keyed cache (spec/evaluation.md).
 
-use crate::catalog::NodeDef;
+use crate::catalog::{NodeDef, Remap};
 use crate::gpu::Gpu;
 use crate::project::{self, Error, GInput, Graph, Project};
 use crate::surface;
@@ -38,6 +38,8 @@ pub struct Ctx<'a> {
     pub dir: &'a Path,
     /// When set, files read by nodes must resolve inside this (canonical) directory.
     pub root: Option<&'a Path>,
+    /// The surface input at each frame a `Remap::Frames` node reads; empty for other nodes.
+    pub sources: Vec<Value>,
 }
 
 impl Ctx<'_> {
@@ -89,6 +91,13 @@ struct Run<'a> {
     size: [u32; 2],
     keys: HashMap<String, u64>,
     outputs: HashMap<String, Arc<Vec<Value>>>,
+}
+
+impl<'a> Run<'a> {
+    /// The same graph at another frame.
+    fn at(&self, frame: i64) -> Run<'a> {
+        Run { graph: self.graph, dir: self.dir, frame, frames: self.frames, fps: self.fps, size: self.size, keys: HashMap::new(), outputs: HashMap::new() }
+    }
 }
 
 fn hash_value(v: &Value, h: &mut impl Hasher) {
@@ -180,7 +189,7 @@ impl Evaluator {
                 GInput::Value(v) => v.clone(),
                 GInput::Anim(a) => a.value_at(run.frame, run.frames, idef.ty),
                 GInput::Missing => unreachable!("checked by key"),
-                // Time-remap nodes read their surface at another frame, below.
+                // Remap nodes read their surface at other frames, below.
                 GInput::Ref { node, output } if gnode.def.remap.is_some() && idef.ty == Type::Surface => {
                     remap_source = Some((node.clone(), output.clone()));
                     Value::None
@@ -192,26 +201,33 @@ impl Evaluator {
                 }
             });
         }
+        let mut sources = vec![];
         if let (Some(remap), Some((src, out))) = (gnode.def.remap, remap_source) {
             let oi = run.graph.nodes[src.as_str()].def.output(&out).unwrap().0;
-            let outputs = match remap(&values, run.frame, run.frames, run.fps) {
-                Some(f) => {
-                    let mut sub = Run { graph: run.graph, dir: run.dir, frame: f.clamp(0, run.frames - 1), frames: run.frames, fps: run.fps, size: run.size, keys: HashMap::new(), outputs: HashMap::new() };
-                    vec![self.node(&mut sub, &src)?[oi].clone()]
+            match remap {
+                Remap::Frames(frames) => {
+                    for f in frames(&values, run.frames) {
+                        sources.push(self.node(&mut run.at(f), &src)?[oi].clone());
+                    }
                 }
-                None => {
-                    let s = self.node(run, &src)?[oi].clone();
-                    let s = s.surface().expect("surface source");
-                    vec![Value::Surface(Arc::new(surface::Surface::new(s.width, s.height)))]
+                Remap::Frame(remap) => {
+                    let outputs = match remap(&values, run.frame, run.frames, run.fps) {
+                        Some(f) => vec![self.node(&mut run.at(f.clamp(0, run.frames - 1)), &src)?[oi].clone()],
+                        None => {
+                            let s = self.node(run, &src)?[oi].clone();
+                            let s = s.surface().expect("surface source");
+                            vec![Value::Surface(Arc::new(surface::Surface::new(s.width, s.height)))]
+                        }
+                    };
+                    self.last.push(id.into());
+                    let outputs = Arc::new(outputs);
+                    self.insert(k, outputs.clone(), 0);
+                    run.outputs.insert(id.into(), outputs.clone());
+                    return Ok(outputs);
                 }
-            };
-            self.last.push(id.into());
-            let outputs = Arc::new(outputs);
-            self.insert(k, outputs.clone(), 0);
-            run.outputs.insert(id.into(), outputs.clone());
-            return Ok(outputs);
+            }
         }
-        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref() };
+        let mut ctx = Ctx { def: gnode.def, project_size: run.size, frame: run.frame, frames: run.frames, dir: run.dir, root: self.root.as_deref(), sources };
         let outputs = (gnode.def.run)(&mut ctx, &values).map_err(|e| match e {
             NodeError::Eval(m) => Error::at("eval_error", id, None, m),
             NodeError::Gpu(m) => Error::at("gpu_unavailable", id, None, m),
@@ -298,12 +314,11 @@ fn key(run: &mut Run, id: &str) -> Result<u64, Error> {
 
 /// The key of a node in the same graph at another frame.
 fn key_at(run: &Run, id: &str, frame: i64) -> Result<u64, Error> {
-    let mut sub = Run { graph: run.graph, dir: run.dir, frame, frames: run.frames, fps: run.fps, size: run.size, keys: HashMap::new(), outputs: HashMap::new() };
-    key(&mut sub, id)
+    key(&mut run.at(frame), id)
 }
 
-/// A time-remap node's output is its source at another frame: hash the source's key at that frame, or at every frame
-/// when a parameter comes from a ref (its value is unknown before evaluation).
+/// A remap node's output depends on its source at other frames: hash the source's key at the frames it reads, or at
+/// every frame when a parameter comes from a ref (its value is unknown before evaluation).
 fn remap_key(run: &mut Run, id: &str, h: &mut DefaultHasher) -> Result<(), Error> {
     let gnode = &run.graph.nodes[id];
     let mut values = Vec::with_capacity(gnode.inputs.len());
@@ -325,16 +340,23 @@ fn remap_key(run: &mut Run, id: &str, h: &mut DefaultHasher) -> Result<(), Error
         });
     }
     let Some(src) = source else { return Ok(()) };
-    let remap = gnode.def.remap.unwrap();
-    if known {
-        match remap(&values, run.frame, run.frames, run.fps) {
+    match gnode.def.remap.unwrap() {
+        Remap::Frame(remap) if known => match remap(&values, run.frame, run.frames, run.fps) {
             Some(f) => key_at(run, &src, f.clamp(0, run.frames - 1))?.hash(h),
             None => "empty".hash(h),
+        },
+        Remap::Frames(frames) if known => {
+            let frames = frames(&values, run.frames);
+            frames.len().hash(h);
+            for f in frames {
+                key_at(run, &src, f)?.hash(h);
+            }
         }
-    } else {
-        // shortcut: nested remaps with ref parameters cost frames² key lookups; memoise keys per frame if that gets slow.
-        for f in 0..run.frames {
-            key_at(run, &src, f)?.hash(h);
+        _ => {
+            // shortcut: nested remaps with ref parameters cost frames² key lookups; memoise keys per frame if that gets slow.
+            for f in 0..run.frames {
+                key_at(run, &src, f)?.hash(h);
+            }
         }
     }
     Ok(())
