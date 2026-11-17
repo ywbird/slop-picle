@@ -117,8 +117,11 @@ using the frame given when it was opened. `GET /api/render` already takes `frame
 ## Web UI
 
 - *Timeline* (bottom bar, shown when `frames > 1`): first/previous/play-pause/next buttons, a frame slider
-  `0 … frames − 1` and the frame number. Play advances one frame per `1/fps` s and loops. The current frame drives
-  thumbnails, image popups and the values shown in node popups.
+  `0 … frames − 1` and the frame number. The current frame drives thumbnails, image popups and the values shown in node
+  popups. A frame is shown only once its data and every image that changes are loaded, all at once, so the number and
+  the pictures always agree; requests superseded by a newer one are dropped. Play shows each frame in turn, at most
+  `fps` frames per second, waiting for loading rather than skipping (it runs slower until the frames are cached, then
+  at `fps`), and loops.
 - *Keys in the node popup*: every animatable input has a key button. Not animated → it sets a key at the current
   frame with the current value. Animated → the widget shows the value at the current frame; a filled key button means a
   key sits on this frame (click: `remove_key`), a hollow one means none (click: `set_key`). Changing the widget of an
@@ -155,6 +158,7 @@ The tool instructions mention keyframes (`set_key`, the `anim` form) and that `r
 | AN-N5 | `rate_remap` framerate 4 with fps 12, frames 12: frames 0, 2, 3, 7 | source 0, 0, 3, 6 |
 | AN-N6 | `delay` frames 2, frames 8: frame 0 (`hold`), 1 (`loop`), 1 (`clear`), 5 | source 0; 7; transparent; 3 |
 | AN-N7 | `anim_loop` `loop_start 2`, `loop_range 3`, frames 12: frames 0, 1, 4, 5, 9; `pingpong` frames 4, 5, 6 | source 0 (pre-loop pass), 1, 1, 2, 3; 3, 2, 1 |
+| AN-N8 | one evaluator: `revert` at frame 0 (source frame 7), then the project with the source's key at frame 7 changed | the new colour (regression: the key used the source at frame 0, so the old picture came back) |
 | SRV-22 | `GET /api/project?frame=5` on a project with an animated input | `animated` holds the frame-5 value; `keys` differ from frame 0 for the animated node |
 | WEB-25 | headless Chromium on a 4-frame animated project: timeline next, play | the frame number advances; the animated node's thumbnail URL carries the frame and its pixels change |
 | WEB-26 | headless Chromium: key button on `solid.color` at frame 0, change colour at frame 2 | the file holds an `anim` with keys at 0 and 2; the key button is filled at 2, hollow at 1 |

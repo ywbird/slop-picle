@@ -15,8 +15,9 @@ the editor; the URL hash holds the path (`#/edit/<path>`), so reloads stay on th
 
 - *Graph* (full width). One generic node component for every type: a header with the id (and label, if any) and the type;
   one row per input with a target handle on the left; output handles on the right; a thumbnail of the first output
-  when it is a surface (`/api/render` at scale 1, shown at up to 64 px with pixelated scaling; the URL carries the node's
-  key so it reloads only when the key changes). Nodes with errors get a red border and list the messages.
+  when it is a surface (`/api/render` at scale 1, shown at up to 64 px with pixelated scaling). The URL is fixed per node and key:
+  a key already seen at another frame reuses that URL, so a node whose key does not change never reloads when the
+  frame changes, and a looping animation reuses the images of its first pass. Nodes with errors get a red border and list the messages.
   No Svelte Flow attribution link (user request).
 - *Node popup.* Clicking a node opens a floating card beside it (to its right, clamped to the window), draggable by its
   header; an empty-canvas click, Esc or its close button closes it. It holds what the inspector held: id (rename),
@@ -92,6 +93,7 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-05 | `fits` number → int input; int → number; color → surface | false; true; false |
 | WEB-06 | `edgeDeleteOp`, `moveOp`, `addOp`, `literalOp`, `resetOp` | the ops in the table above, positions rounded |
 | WEB-07 | `thumbUrl` | contains the encoded path, node and key |
+| WEB-07b | `thumbFor` with one URL map: same node and key at frames 0 and 5; then another key | the same URL; then a new URL |
 | WEB-08 | `bun run build` | succeeds; `web/dist/index.html` exists |
 | WEB-09 | headless Chromium opens the served UI with the token, on a project with 3 nodes | the three nodes render with thumbnails; an edit through `slopc edit` adds a node that appears without a reload |
 | WEB-10 | headless Chromium: connect, change a number widget (in the popup) | the file on disk has the new ref and value |
@@ -108,4 +110,5 @@ Every edit is one call to `POST /api/ops`; the UI never writes files itself.
 | WEB-22 | headless Chromium: box-select two nodes, press Delete | both gone, in one `/api/ops` request |
 | WEB-23 | headless Chromium: after WEB-22, Ctrl+Z, then Ctrl+Shift+Z, then the undo button | nodes back / gone again / back |
 | WEB-24 | headless Chromium: change a value, `slopc edit` adds a node, Ctrl+Z | the value is back to before; the added node is still there |
+| WEB-27 | headless Chromium, 24-frame animated chain: play for more than one loop, sampling the timeline and the `out` thumbnail | the displayed image's key always equals the key of the frame the timeline shows; the frame number never skips; frame 0 after the loop has the same pixels as at the start (regression: images lagged the timeline) |
 | WEB-11 | headless Chromium: upload a PNG on an `image` node's `path` (in the popup) | `assets/<name>.png` exists; the node's `path` is that; its thumbnail shows the image size |

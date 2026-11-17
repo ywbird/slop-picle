@@ -21,8 +21,10 @@
 ### Cache
 
 Within one process, node outputs are cached. The cache key of a node is a hash of:
-its type, its literal inputs (after defaults), the cache keys of its ref inputs, the frame if the node reads the frame,
-and the content of files it reads (`image`).
+its type, its literal inputs (after defaults; animated inputs by their value at the frame), the cache keys of its ref
+inputs, the frame, the frame count and the fps if the node reads the frame, and the content of files it reads (`image`).
+A time-remapping node ([animation.md](animation.md#time-remapping-surface-nodes)) also hashes the key of its source at
+the frame it reads, or at every frame when one of its parameters comes from a ref. So equal keys mean equal outputs.
 
 - Evaluating the same target twice runs no node the second time.
 - Changing one input re-runs that node and its dependents only.
@@ -77,6 +79,7 @@ and the content of files it reads (`image`).
 | EV-07 | evaluate the same target twice in one process | second run executes 0 nodes (counted by an instrumented runner) |
 | EV-08 | chain a→b→c, change an input of b, evaluate c | a not re-run; b and c re-run |
 | EV-09 | `image` file content changes between evaluations (same path) | image node and dependents re-run |
+| EV-13 | one evaluator: a `counter` (`animation_progress`) at frame 9 with 10 frames, then the same project with 19 frames | 1, then 0.5 (regression: the frame count was not in the key, so the old value came back) |
 | EV-11 | a project with an unconnected `blend` (missing `background`) and a separate solid target | target evaluates fine |
 | EV-12 | target depends on a node with a missing required input | error `missing_input` naming that node |
 | EV-10 | ref value out of range (an M3 `number` node output of 5 into `blend.opacity`) | clamped to 1 |
