@@ -20,6 +20,7 @@ slopc new art.slopc.json --width 32 --height 32
 slopc nodes                      # node types; `slopc nodes blend` for inputs
 slopc edit art.slopc.json ops.json
 slopc render art.slopc.json -o art.png --scale 8
+slopc export art.slopc.json -o art.gif --scale 4      # or .apng, or art_%3f.png for one PNG per frame
 slopc serve --root .             # web UI; open the printed URL (it carries the token)
 slopc serve --host 0.0.0.0       # reachable from the LAN; put TLS in front for untrusted networks
 ```
