@@ -90,8 +90,7 @@
   {@const g = (value ?? { keys: [] }) as Grad}
   <div class="list col">
     <select value={g.type ?? "rgb"} onchange={(e) => change({ ...g, type: e.currentTarget.value })}>
-      <option value="rgb">rgb</option>
-      <option value="constant">constant</option>
+      {#each ["rgb", "constant", "hsv", "hsv_inverted", "oklab", "cmyk"] as t (t)}<option value={t}>{t}</option>{/each}
     </select>
     {#each g.keys as k, i (i)}
       <span class="item">

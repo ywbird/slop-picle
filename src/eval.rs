@@ -112,7 +112,7 @@ fn hash_value(v: &Value, h: &mut impl Hasher) {
         Value::Padding(x) => x.hash(h),
         Value::Palette(x) => x.hash(h),
         Value::Gradient(g) => {
-            g.constant.hash(h);
+            g.kind.hash(h);
             for (t, c) in &g.keys {
                 (t.to_bits(), c).hash(h);
             }

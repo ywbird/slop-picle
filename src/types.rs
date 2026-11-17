@@ -138,42 +138,22 @@ impl Value {
 pub const MAX_PALETTE: usize = 256;
 pub const MAX_KEYS: usize = 16;
 
-/// Upstream gradient: keys sorted by time; blend 0 = rgb, 1 = constant (spec/types.md#gradient-evaluation).
+/// Gradient blend types, indexed by `Gradient::kind` (spec/types.md#gradient-evaluation).
+pub const GRADIENT_TYPES: &[&str] = &["rgb", "constant", "hsv", "hsv_inverted", "oklab", "cmyk"];
+
+/// Upstream gradient: keys sorted by time, blended by `GRADIENT_TYPES[kind]`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Gradient {
-    pub constant: bool,
+    pub kind: u8,
     pub keys: Vec<(f64, [u8; 4])>,
 }
 
 impl Gradient {
     pub fn to_json(&self) -> Json {
         json!({
-            "type": if self.constant { "constant" } else { "rgb" },
+            "type": GRADIENT_TYPES[self.kind as usize],
             "keys": self.keys.iter().map(|(t, c)| json!({ "time": t, "color": format_color(*c) })).collect::<Vec<_>>(),
         })
-    }
-
-    pub fn eval(&self, t: f64) -> [f64; 4] {
-        let f = |c: [u8; 4]| c.map(|x| x as f64 / 255.0);
-        let first = self.keys[0];
-        if t <= first.0 {
-            return f(first.1);
-        }
-        for w in self.keys.windows(2) {
-            let ((t0, c0), (t1, c1)) = (w[0], w[1]);
-            if t1 == t {
-                return f(c1);
-            }
-            if t1 > t {
-                if self.constant {
-                    return f(c0);
-                }
-                let k = (t - t0) / (t1 - t0);
-                let (a, b) = (f(c0), f(c1));
-                return [0, 1, 2, 3].map(|i| a[i] + (b[i] - a[i]) * k);
-            }
-        }
-        f(self.keys[self.keys.len() - 1].1)
     }
 }
 
@@ -277,10 +257,11 @@ pub fn check_literal(def: &InputDef, j: &Json) -> Result<Value, LiteralError> {
             if let Some(k) = o.keys().find(|k| *k != "type" && *k != "keys") {
                 return Err(("type_mismatch", format!("input '{}': unknown gradient key '{k}'", def.name)));
             }
-            let constant = match o.get("type").map(|t| t.as_str()) {
-                None | Some(Some("rgb")) => false,
-                Some(Some("constant")) => true,
-                Some(Some(t)) => return Err(("invalid_enum", format!("input '{}': gradient type '{t}', expected rgb or constant", def.name))),
+            let kind = match o.get("type").map(|t| t.as_str()) {
+                None => 0,
+                Some(Some(t)) => GRADIENT_TYPES.iter().position(|g| *g == t).ok_or_else(|| {
+                    ("invalid_enum", format!("input '{}': gradient type '{t}', expected one of {}", def.name, GRADIENT_TYPES.join(", ")))
+                })? as u8,
                 Some(None) => return Err(bad()),
             };
             let keys = o.get("keys").and_then(Json::as_array).ok_or_else(bad)?;
@@ -298,7 +279,7 @@ pub fn check_literal(def: &InputDef, j: &Json) -> Result<Value, LiteralError> {
                 out.push((t, c));
             }
             out.sort_by(|a, b| a.0.total_cmp(&b.0));
-            Ok(Value::Gradient(Gradient { constant, keys: out }))
+            Ok(Value::Gradient(Gradient { kind, keys: out }))
         }
         Type::Enum => {
             let s = j.as_str().ok_or_else(bad)?;

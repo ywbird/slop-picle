@@ -30,6 +30,43 @@ fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
     let q = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
     return c.z * mix(K.xxx, clamp(q - K.xxx, vec3<f32>(0.0), vec3<f32>(1.0)), c.y);
 }
+fn grad_hue(a0: f32, a1: f32, t: f32, inv: bool) -> f32 {
+    let da = fract(a1 - a0);
+    var ds = fract(2.0 * da) - da;
+    if (inv) { ds -= sign(ds); }
+    return a0 + ds * t;
+}
+fn grad_oklab(c: vec3<f32>) -> vec3<f32> {
+    let m = mat3x3<f32>(0.4121656120, 0.2118591070, 0.0883097947, 0.5362752080, 0.6807189584, 0.2818474174, 0.0514575653, 0.1074065790, 0.6302613616);
+    return pow(max(vec3<f32>(0.0), m * pow(c, vec3<f32>(2.2))), vec3<f32>(1.0 / 3.0));
+}
+fn grad_unoklab(k: vec3<f32>) -> vec3<f32> {
+    let m = mat3x3<f32>(4.0767245293, -1.2681437731, -0.0041119885, -3.3072168827, 2.6093323231, -0.7034763098, 0.2307590544, -0.3411344290, 1.7068625689);
+    return pow(max(vec3<f32>(0.0), m * (k * k * k)), vec3<f32>(1.0 / 2.2));
+}
+fn grad_cmyk(c: vec3<f32>) -> vec4<f32> {
+    let k = 1.0 - max(max(c.r, c.g), c.b);
+    if (k >= 1.0) { return vec4<f32>(0.0, 0.0, 0.0, 1.0); }
+    return vec4<f32>((vec3<f32>(1.0) - c - k) / (1.0 - k), k);
+}
+// Upstream gradientEval blends between two keys (spec/types.md#gradient-evaluation); `kind` indexes GRADIENT_TYPES.
+fn grad_mix(c0: vec4<f32>, c1: vec4<f32>, f: f32, kind: u32) -> vec4<f32> {
+    let a = mix(c0.a, c1.a, f);
+    switch kind {
+        case 1u: { return c0; }
+        case 2u, 3u: {
+            let h0 = rgb2hsv(c0.rgb);
+            let h1 = rgb2hsv(c1.rgb);
+            return vec4<f32>(hsv2rgb(vec3<f32>(grad_hue(h0.x, h1.x, f, kind == 3u), mix(h0.yz, h1.yz, f))), a);
+        }
+        case 4u: { return vec4<f32>(grad_unoklab(mix(grad_oklab(c0.rgb), grad_oklab(c1.rgb), f)), a); }
+        case 5u: {
+            let q = mix(grad_cmyk(c0.rgb), grad_cmyk(c1.rgb), f);
+            return vec4<f32>((vec3<f32>(1.0) - q.xyz) * (1.0 - q.w), a);
+        }
+        default: { return vec4<f32>(mix(c0.rgb, c1.rgb, f), a); }
+    }
+}
 ";
 
 /// CPU copies of the shader hash (spec/nodes.md#shared-definitions).
@@ -91,9 +128,8 @@ pub fn module(def: &NodeDef, extras: &[&str], body: &str) -> String {
         let ti = p.{n}_times[i].x;
         if (ti == t) {{ return p.{n}_colors[i]; }}
         if (ti > t) {{
-            if (p.{n}_info.y == 1u) {{ return p.{n}_colors[i - 1]; }}
             let f = (t - p.{n}_times[i - 1].x) / (ti - p.{n}_times[i - 1].x);
-            return mix(p.{n}_colors[i - 1], p.{n}_colors[i], f);
+            return grad_mix(p.{n}_colors[i - 1], p.{n}_colors[i], f, p.{n}_info.y);
         }}
     }}
     return p.{n}_colors[n - 1];
@@ -141,7 +177,7 @@ pub fn uniforms(def: &NodeDef, values: &[Value], out: [u32; 2], frame: i64, extr
                 }
             }
             (Type::Gradient, Value::Gradient(g)) => {
-                push_u(&mut b, [g.keys.len() as u32, g.constant as u32, 0, 0]);
+                push_u(&mut b, [g.keys.len() as u32, g.kind as u32, 0, 0]);
                 for i in 0..MAX_KEYS {
                     push_f(&mut b, [g.keys.get(i).map_or(2.0, |k| k.0 as f32), 0.0, 0.0, 0.0]);
                 }
