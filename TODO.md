@@ -164,7 +164,7 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [ ] Area 3, completing the existing nodes (also anim_curve, stagger and delay_value, which need curve/any types)
     - [x] Scope, following upstream: every upstream input of the 33 nodes (about 200, counted from upstream's `newInput` lists), in steps, each with spec, tests and commits
     - [x] 3.1 all 25 upstream blend modes, shared by every node with a blend mode (commit 9dcbeb4)
-    - [ ] 3.2 blend node inputs: mask, swap, invert mask, mask feather, output dimension, constant dimension, fill mode
+    - [x] 3.2 blend node inputs: mask, swap, invert mask, mask feather, output dimension, constant dimension, fill mode; horizontal/vertical align left out (upstream neither shows nor uses them) (commit 504084b)
     - [ ] 3.3 gradient blends (gradient interpolation types)
     - [ ] 3.4 curve and any types; anim_curve, stagger, delay_value; curve inputs
     - [ ] 3.5 shared modifiers: mask, mix and channels on filters, UV map on generators
