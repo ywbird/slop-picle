@@ -491,7 +491,7 @@ no opaque sample → `(0,0,0,0)`. `max` / `min`: per-channel max / min; `min` ke
 ## blur — filter
 
 Upstream: `Node_Blur`, `shaders/sh_blur_gaussian`. Gaussian only. Deviation: the kernel is defined here
-(upstream `__gaussian_get_kernel` not ported): radius `r = ceil(size) − 1`, `σ = max(size, 1)/3`,
+(upstream `__gaussian_get_kernel` not ported): radius `r = max(ceil(size) − 1, 0)`, `σ = max(size, 1)/3`,
 `w(i) = exp(−i²/(2σ²))`. Left out: `Gamma Correction`, `Aspect Ratio`, `Direction`, custom intensity.
 
 | Input | Type | Default | Range |
@@ -613,7 +613,7 @@ matrices; 2×2 = `[[0, 2], [3, 1]]`) or `unit(hash2(x, y, seed))`; `invert` → 
 
 | ID | Given | Expected |
 |---|---|---|
-| N-DITHER-01 | 4×4 grey 128, default palette | each 2×2 block has 2 white and 2 black; (0, 0) white |
+| N-DITHER-01 | 4×4 grey 128, default palette | each 2×2 block has 2 white and 2 black; (0, 0) black |
 | N-DITHER-02 | pixels exactly black or white | unchanged |
 | N-DITHER-03 | `invert` | black and white swap places versus N-DITHER-01 |
 | N-DITHER-04 | `greyscale`, `steps 4`, grey 64 | each pixel is 63 or 64 ± 1 (`floor`/`ceil` levels or exact) |
@@ -664,7 +664,7 @@ Without a map, output = input. Otherwise `m = lum(map(floor(uv ⊙ map_size)))`,
 | ID | Given | Expected |
 |---|---|---|
 | N-DISPLACE-01 | 4×1 fixture, white map, `position [0.5, 0]` | output x = input x + 1; x = 3 transparent |
-| N-DISPLACE-02 | map grey 128… exactly `mid_value` (map 0.5 → set `mid_value` to the map's lum) | unchanged |
+| N-DISPLACE-02 | map grey 128, `mid_value` = 128/255 (the map's lum) | unchanged |
 | N-DISPLACE-03 | no map | unchanged |
 
 ## color_adjust — color
@@ -734,7 +734,7 @@ Matched: `hard_replace` → that colour; else `mix(to, c, d/threshold)`. Unmatch
 
 | ID | Given | Expected |
 |---|---|---|
-| N-COLOR_REPLACE-01 | `from ["#ff0000"]`, `to ["#0000ff"]`, red pixel alpha 200 and a green pixel | blue alpha 200; green unchanged |
+| N-COLOR_REPLACE-01 | `from ["#ff0000"]`, `to ["#0000ff"]`, `multiply_alpha false`, red pixel alpha 200 and a green pixel | blue alpha 200; green unchanged |
 | N-COLOR_REPLACE-02 | defaults (same palettes) | black stays black, white stays white |
 | N-COLOR_REPLACE-03 | `from` 2 colours, `to` 3 colours | `from[1]` maps to `to[2]` |
 
