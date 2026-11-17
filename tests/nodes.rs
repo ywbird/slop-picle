@@ -496,3 +496,102 @@ fn n_blend_18_equal() {
     assert_all(&blend(&c, Some(&c), json!({ "blend_mode": "unequal" })), CLEAR, 0);
     assert_all(&blend(&c, Some(&c), json!({ "blend_mode": "equal", "opacity": 0.5 })), [128, 128, 128, 128], 1);
 }
+
+/// Blend with surface inputs given by name (`background`, `foreground`, `mask`), each read through an image node.
+fn blend_imgs(imgs: &[(&str, &Surface)], inputs: Json) -> Surface {
+    let dir = tempfile::tempdir().unwrap();
+    let mut inputs = inputs;
+    let mut nodes = json!({});
+    for (name, s) in imgs {
+        write_png(dir.path(), &format!("{name}.png"), s);
+        nodes[*name] = json!({ "type": "image", "inputs": { "path": format!("{name}.png") } });
+        inputs[*name] = json!({ "ref": name });
+    }
+    nodes["b"] = json!({ "type": "blend", "inputs": inputs });
+    eval_in(dir.path(), imgs[0].1.width, imgs[0].1.height, nodes, "b").unwrap()
+}
+
+const WHITE: [u8; 4] = [255, 255, 255, 255];
+const BLACK: [u8; 4] = [0, 0, 0, 255];
+
+fn columns(w: u32, h: u32, white_below: u32) -> Surface {
+    surface(w, h, |x, _| if x < white_below { WHITE } else { BLACK })
+}
+
+#[test]
+fn n_blend_19_to_21_mask() {
+    let (bg, fg) = (flat(2, 2, BLACK), flat(2, 2, WHITE));
+    let s = blend_imgs(&[("background", &bg), ("foreground", &fg), ("mask", &columns(2, 2, 1))], json!({}));
+    assert_eq!((s.pixel(0, 0), s.pixel(1, 1)), (WHITE, BLACK));
+    let s = blend_imgs(&[("background", &bg), ("foreground", &fg), ("mask", &columns(2, 2, 1))], json!({ "invert_mask": true }));
+    assert_eq!((s.pixel(0, 0), s.pixel(1, 1)), (BLACK, WHITE));
+    let s = blend_imgs(&[("background", &bg), ("foreground", &fg), ("mask", &flat(2, 2, CLEAR))], json!({ "invert_mask": true }));
+    assert_all(&s, BLACK, 0);
+}
+
+#[test]
+fn n_blend_22_mask_feather() {
+    let s = blend_imgs(&[("background", &flat(6, 7, BLACK)), ("foreground", &flat(6, 7, WHITE)), ("mask", &columns(6, 7, 3))], json!({ "mask_feather": 4 }));
+    let row: Vec<u8> = (0..6).map(|x| s.pixel(x, 3)[0]).collect();
+    for (got, want) in row.iter().zip([160u8, 193, 160, 89, 31, 6]) {
+        assert!(got.abs_diff(want) <= 2, "row 3 {row:?}");
+    }
+}
+
+#[test]
+fn n_blend_23_swap() {
+    let s = blend_imgs(&[("background", &flat(4, 4, [255, 0, 0, 255])), ("foreground", &flat(2, 2, [0, 0, 255, 255]))], json!({ "swap": true }));
+    assert_eq!((s.width, s.height), (2, 2));
+    assert_all(&s, [255, 0, 0, 255], 0);
+}
+
+fn quad() -> Surface {
+    surface(2, 2, |x, y| [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [255, 255, 0, 255]][(y * 2 + x) as usize])
+}
+
+#[test]
+fn n_blend_24_output_foreground_stretches_background() {
+    let s = blend_imgs(&[("background", &quad()), ("foreground", &flat(4, 4, CLEAR))], json!({ "output_dimension": "foreground" }));
+    assert_eq!((s.width, s.height), (4, 4));
+    for (x, y) in [(0, 0), (3, 0), (1, 3), (3, 3)] {
+        assert_eq!(s.pixel(x, y), quad().pixel(x / 2, y / 2), "({x}, {y})");
+    }
+}
+
+#[test]
+fn n_blend_25_output_sizes() {
+    let (bg, fg) = (flat(4, 2, WHITE), flat(2, 4, WHITE));
+    let size = |inputs: Json| {
+        let s = blend_imgs(&[("background", &bg), ("foreground", &fg)], inputs);
+        (s.width, s.height)
+    };
+    assert_eq!(size(json!({ "output_dimension": "maximum" })), (4, 4));
+    assert_eq!(size(json!({ "output_dimension": "constant", "constant_dimension": [3, 5] })), (3, 5));
+    assert_eq!(size(json!({ "output_dimension": "mask" })), (1, 1));
+}
+
+#[test]
+fn n_blend_26_27_fill() {
+    let bg = flat(4, 4, [128, 128, 128, 255]);
+    let s = blend_imgs(&[("background", &bg), ("foreground", &quad())], json!({ "fill_mode": "stretch" }));
+    for (x, y) in [(0, 0), (1, 1), (2, 0), (3, 1), (0, 2), (2, 3), (3, 3)] {
+        assert_eq!(s.pixel(x, y), quad().pixel(x / 2, y / 2), "stretch ({x}, {y})");
+    }
+    let s = blend_imgs(&[("background", &bg), ("foreground", &quad())], json!({ "fill_mode": "tile" }));
+    for (x, y) in [(0, 0), (1, 0), (2, 0), (3, 1), (0, 2), (1, 3), (3, 3)] {
+        assert_eq!(s.pixel(x, y), quad().pixel(x % 2, y % 2), "tile ({x}, {y})");
+    }
+}
+
+#[test]
+fn n_blend_28_swap_without_foreground() {
+    let s = blend_imgs(&[("background", &flat(4, 4, WHITE))], json!({ "swap": true }));
+    assert_eq!((s.width, s.height), (1, 1));
+    assert_eq!(s.pixel(0, 0), CLEAR);
+}
+
+#[test]
+fn n_blend_29_mask_in_burn_modes() {
+    let imgs = [("background", &flat(2, 2, [200, 100, 50, 255])), ("foreground", &flat(2, 2, [230, 200, 120, 255])), ("mask", &flat(2, 2, [128, 128, 128, 255]))];
+    assert_all(&blend_imgs(&imgs, json!({ "blend_mode": "color_burn" })), [194, 57, 0, 255], 2);
+}
