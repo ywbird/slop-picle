@@ -427,3 +427,22 @@ fn srv_21_undo_redo_via_api() {
     assert_eq!(st, 200);
     assert_eq!(file(), edited);
 }
+
+#[test]
+fn srv_22_project_at_frame() {
+    let d = tempfile::tempdir().unwrap();
+    let s = start(d.path(), Some(TOKEN), None);
+    s.post("/api/projects", &json!({ "path": "a.slopc.json" }));
+    s.post(
+        "/api/ops?path=a.slopc.json",
+        &json!([
+            { "op": "set_settings", "frames": 10 },
+            { "op": "add_node", "id": "bg", "type": "solid", "inputs": { "color": { "anim": [{ "time": 0, "value": "#000000" }, { "time": 9, "value": "#ffffff" }] } } }
+        ]),
+    );
+    let (_, f0) = s.get_json("/api/project?path=a.slopc.json");
+    let (st, f5) = s.get_json("/api/project?path=a.slopc.json&frame=5");
+    assert_eq!(st, 200);
+    assert_eq!(f5["animated"]["bg"]["color"], "#8e8e8e");
+    assert_ne!(f0["keys"]["bg"], f5["keys"]["bg"]);
+}
