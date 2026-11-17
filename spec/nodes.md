@@ -139,14 +139,14 @@ exact 0/±1.
 
 Upstream: `scripts/node_blend`, `scripts/draw_surface_blend`, `shaders/sh_blend_*`. Left out: `Mask`, `Swap`,
 `Invert mask`, `Mask feather`, `Output dimension` (always background), `Constant dimension`, `Fill mode` (always none),
-`Horizontal Align`, `Vertical Align`. Blend modes in M1: `normal`, `replace`, `multiply`, `add`, `screen`
-(upstream names; the rest come later).
+`Horizontal Align`, `Vertical Align`. Blend modes: all of upstream `BLEND_TYPES` (`scripts/draw_surface_blend`), in
+its order, names in snake case.
 
 | Input | Type | Default | Range |
 |---|---|---|---|
 | `background` | surface | required | |
 | `foreground` | surface | none (optional) | |
-| `blend_mode` | enum `normal`, `replace`, `multiply`, `add`, `screen` | `normal` | |
+| `blend_mode` | enum `normal`, `replace`, `multiply`, `color_burn`, `linear_burn`, `minimum`, `add`, `screen`, `color_dodge`, `maximum`, `overlay`, `soft_light`, `hard_light`, `vivid_light`, `linear_light`, `pin_light`, `difference`, `exclusion`, `subtract`, `divide`, `hue`, `saturation`, `luminosity`, `equal`, `unequal` | `normal` | |
 | `opacity` | number | 1 | 0–1 |
 | `preserve_alpha` | bool | false | |
 | `position` | vec2 | `[0.5, 0.5]` | fraction of the background size |
@@ -159,19 +159,49 @@ Without `foreground`, the output is the background.
 
 Otherwise, as upstream does: a **foreground layer** the size of the background starts fully transparent `(0,0,0,0)`,
 and the foreground is copied onto it with its top-left at `floor(position × bg_size − fg_size / 2)` (centred on
-`position`). Then every pixel of the output is computed from background `B` and layer `F` (straight RGBA in 0–1), with
-`o = opacity`, `al = F.a' + B.a·(1 − F.a')` where `F.a'` is the mode's foreground alpha below:
+`position`). Then every pixel of the output is computed from background `B` and layer `F` (straight RGBA in 0–1) with
+`o = opacity`, as the mode's `sh_blend_*` shader does. Vector operations act on all four channels (alpha too), in the
+order written; `al = F.a + B.a·(1 − F.a)` with `F.a` as scaled at that point, `po = preserve_alpha ? F.a : o`,
+`lum(c) = 0.2126·c.r + 0.7152·c.g + 0.0722·c.b`:
 
-| Mode | Formula (from `sh_blend_*`) |
+| Mode | Formula |
 |---|---|
-| `normal` | `F.a' = F.a·o`; if `al = 0` → `(0,0,0,0)`; else `rgb = (F.rgb·F.a' + B.rgb·B.a·(1 − F.a')) / al`, `a = al` |
-| `replace` | `res = mix(B, F, o)` (all four channels) |
-| `multiply` | `F.a' = F.a`; `res = mix(B, B·F, o)` (all four channels), then `res.rgb /= al` |
-| `add` | `F.a' = F.a·o`; `res = B.rgb·B.a + F.rgb·F.a'` and `res.a = B.a + F.a'`, then `res.rgb /= al` |
-| `screen` | `F.a' = F.a`; `F.rgb ·= F.a`; `res = mix(B, 1 − (1 − B)(1 − F), o)` (all four channels), then `res.rgb /= al` |
+| `normal` | `F.a ·= o`; `res = (F·F.a + B·B.a·(1 − F.a)) / al`, `res.a = al` |
+| `replace` | `res = mix(B, F, o)` |
+| `multiply` | `res = mix(B, B·F, o)`, `res.rgb /= al` |
+| `minimum`, `maximum` | `F ·= o`; `res = min(B, F)` / `max(B, F)` per channel |
+| `add` | `B.rgb ·= B.a`; `F.a ·= o`; `F.rgb ·= F.a`; `res = B + F`, `res.rgb /= al` |
+| `subtract` | `B.rgb ·= B.a`; `F.a ·= o`; `F.rgb ·= F.a`; `res = mix(B, B − F, po)`, `res.rgb /= al` |
+| `screen` | `F.rgb ·= F.a`; `res = mix(B, 1 − (1 − B)(1 − F), o)`, `res.rgb /= al` |
+| `overlay` | `F.a ·= o`; `X = lum(F.rgb) > 0.5 ? 1 − (1 − 2(F − 0.5))(1 − B) : 2F·B`; `res = mix(B, X, po)`, `res.rgb /= al` |
+| `difference` | `res = mix(B, (abs(B.rgb − F.rgb), 1), o)`; `preserve_alpha` has no effect (upstream ignores it) |
+| `equal`, `unequal` | `c = o` where `B = F` exactly (`equal`) or where they differ (`unequal`), else `0`; `res = (c, c, c, c)` |
+| `hue` | `h = hsv(F.rgb)` with saturation and value of `hsv(B.rgb)`; `res = (mix(B.rgb, rgb(h), F.a·o), B.a)`, `res.rgb /= al` |
+| `saturation` | `h = hsv(B.rgb)`, `h.s = mix(h.s, hsv(F.rgb).s, F.a·o)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
+| `luminosity` | `h = hsl(B.rgb)`, `h.l = mix(h.l, hsl(F.rgb).l, F.a·o)`; `res = (rgb(h), B.a)`, `res.rgb /= al` |
+| the rest, below | `F.a ·= o`; `mx = B·(1 − o) + X·o`; `res = mix(B, mx, po)`, `res.rgb /= al` |
 
-Then, for every mode: if `preserve_alpha`, `a = B.a`. Results are clamped to 0–1.
-Deviation: where upstream divides by `al = 0`, the output is `(0,0,0,0)`.
+| Mode | `X` (`L = lum(F.rgb) > 0.5`) |
+|---|---|
+| `color_burn` | `1 − (1 − B) / F` |
+| `linear_burn` | `B + F − 1` |
+| `color_dodge` | `F / (1 − B)` |
+| `soft_light` | `L ? 1 − (1 − B)(1 − (F − 0.5)) : B·(F + 0.5)` |
+| `hard_light` | `L ? 1 − (1 − B)(1 − 2(F − 0.5)) : 2B·F` |
+| `vivid_light` | `L ? 1 − (1 − B)·2(F − 0.5) : B / (1 − 2F)` |
+| `linear_light` | `B + 2F − 1` (upstream's two branches are equal) |
+| `pin_light` | `L ? max(B, 2(F − 0.5)) : min(B, 2F)` |
+| `exclusion` | `0.5 − 2(B − 0.5)(F − 0.5)` |
+| `divide` | `B / F` |
+
+`hsv` and `rgb` are upstream's `rgb2hsv` / `hsv2rgb` (as `color_adjust`); `hsl` is upstream's `rgb2hsl` / `hsl2rgb`.
+Then, for every mode but `difference`: if `preserve_alpha`, `a = B.a`. Results are clamped to 0–1.
+Deviations: where upstream divides by `al = 0`, the output is `(0,0,0,0)`; any other `x / 0` is `0` for `x = 0`, else
+`±10³⁰` (the GPU's result for a division by 0 varies).
+
+Faithful to upstream, the formulas act on alpha as well, so some modes give a transparent result for two opaque
+inputs (for example `exclusion`, `subtract`, and `vivid_light` with a dark foreground): `preserve_alpha` keeps the
+background's alpha.
 
 Note, faithful to upstream: the formulas also run where the layer is transparent, so `multiply` and `screen`
 change the background outside the foreground (`multiply` makes it transparent).
@@ -181,7 +211,7 @@ change the background outside the foreground (`multiply` makes it transparent).
 | N-BLEND-01 | opaque red over opaque blue, same size, `normal` | red |
 | N-BLEND-02 | opaque white over opaque black, `opacity 0.5` | (128,128,128,255) ± 1 |
 | N-BLEND-03 | fully transparent foreground, `normal` | output equals background |
-| N-BLEND-04 | both fully transparent, each mode | (0,0,0,0) |
+| N-BLEND-04 | both fully transparent, each mode | (0,0,0,0); `difference` (0,0,0,255), `equal` (255,255,255,255) |
 | N-BLEND-05 | opaque (128,128,128) over opaque (255,0,64), `multiply` | (128,0,32,255) ± 1 |
 | N-BLEND-06 | opaque (200,100,0) + opaque (100,200,50), `add` | (255,255,50,255) |
 | N-BLEND-07 | opaque (128,0,255) over opaque (128,255,0), `screen` | (192,255,255,255) ± 1 |
@@ -193,6 +223,32 @@ change the background outside the foreground (`multiply` makes it transparent).
 | N-BLEND-13 | 2×2 foreground on 4×4, `position [0, 0]` | only pixel (0, 0) changes; it equals foreground pixel (1, 1) |
 | N-BLEND-14 | 2×2 opaque foreground on 4×4 opaque background, `multiply` | pixels outside x, y ∈ {1, 2} become (0,0,0,0) |
 | N-BLEND-15 | opaque white over opaque black, `replace`, `opacity 0.25` | (64,64,64,255) ± 1 |
+| N-BLEND-16 | opaque `B` (200,100,50) under opaque dark `F` (60,90,40) or light `F` (230,200,120), each mode below | the table below, ± 2 |
+| N-BLEND-17 | opaque (200,100,50) over opaque black, `divide` | (255,255,255,255) (division by 0) |
+| N-BLEND-18 | the same colour as background and foreground, `equal`; `unequal`; `equal` with `opacity 0.5` | (255,255,255,255); (0,0,0,0); (128,128,128,128) ± 1 |
+
+N-BLEND-16 expectations (from upstream's formulas; `o` = opacity):
+
+| Mode | `F` | `o` | Result |
+|---|---|---|---|
+| `color_burn` | light | 1 | (194,57,0,255) |
+| `linear_burn` | light | 1 | (175,45,0,255) |
+| `minimum` | light | 0.5 | (115,100,50,128) |
+| `color_dodge` | dark | 1 | (255,148,50,255) |
+| `maximum` | light | 0.5 | (200,100,60,255) |
+| `overlay` | dark; light | 1 | (94,71,16,255); (244,188,38,255) |
+| `soft_light` | dark; light | 1 | (147,85,33,255); (222,144,44,255) |
+| `hard_light` | light | 1 | (244,188,38,255) |
+| `vivid_light` | dark; light | 1 | (255,255,73,0); (211,167,255,255) |
+| `linear_light` | dark | 1 | (65,25,0,255) |
+| `pin_light` | dark; light | 1 | (120,100,50,255); (205,145,50,255) |
+| `difference` | light | 0.5 | (115,100,60,255) |
+| `exclusion` | light | 1 | (69,143,123,0) |
+| `subtract` | dark | 1 | (140,10,10,0) |
+| `divide` | light | 1 | (222,128,106,255) |
+| `hue` | dark | 1 | (110,200,50,255) |
+| `saturation` | light | 1 | (200,136,104,255) |
+| `luminosity` | dark | 1 | (104,52,26,255) |
 
 ## image — io
 
