@@ -93,7 +93,7 @@ Every milestone starts by writing the spec for its areas in `spec/`, then the te
 
 ### M1 — Headless core and CLI
 
-- [ ] Spec: project file, types and catalog, evaluation and GPU, M1 nodes, CLI
+- [ ] Spec: project file, types and catalog, evaluation and GPU, M1 nodes, CLI (draft written, open points under Feedback)
 - [ ] Scaffold: Cargo crate `slopc`, `.gitignore`
 - [ ] Project model: load, save (file lock + atomic rename), `slopc schema` prints the JSON Schema
 - [ ] Node catalog: types, inputs (type, default, range, enum values), outputs, descriptions
@@ -162,3 +162,10 @@ User feedback as a checklist. Points that need a decision are indented under the
   - [x] Scope now: M1 areas only; other areas when their milestone starts
 - [x] Add rule: use test cases actively
   - [x] Each spec section lists numbered test cases; tests are written from them before the code (TDD)
+- [ ] Write the M1 spec (draft in `spec/`)
+  - To confirm: generators take the project's size; no per-node size input
+  - To confirm: unknown keys are errors; nodes have no free `label` / comment field
+  - To confirm: `blend` puts the foreground at the top-left, with no position input
+  - To confirm: `transform` keeps the input size; content moved outside is clipped
+  - To confirm: `slopc new` creates a project with no nodes
+  - To confirm: limits of 4096 px per side, 2048² px per surface, 1000 nodes
